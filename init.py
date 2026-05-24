@@ -149,9 +149,16 @@ def create_project(cfg: dict) -> Path:
     return project_dir
 
 def create_venv(project_dir: Path):
-    print(f"{G}▶ Creating Python virtual environment (.venv)...{X}")
+    print(f"{G}▶ Setting up Python environment...{X}")
     subprocess.run([sys.executable, "-m", "venv", str(project_dir / ".venv")], check=True)
-    print(f"  {G}✔ Virtual environment ready{X}")
+    print(f"  {G}✔ Virtual environment created{X}")
+    print(f"{G}▶ Installing dependencies (this may take a minute)...{X}")
+    pip = str(project_dir / ".venv" / "bin" / "pip")
+    subprocess.run([pip, "install", "--upgrade", "pip", "-q"], check=True)
+    req = project_dir / "requirements.txt"
+    if req.exists():
+        subprocess.run([pip, "install", "-r", str(req), "-q"], check=True)
+    print(f"  {G}✔ Dependencies installed{X}")
 
 EXCLUDE = {
     ".git", "__pycache__", ".venv", ".DS_Store",
@@ -219,62 +226,34 @@ def show_summary(cfg: dict, project_dir: Path):
 {C}{B}║{X}  📊  Data   : {fn}
 {C}{B}║{X}  🚀  Deploy : {plat}{gh_line}
 {C}{B}╠══════════════════════════════════════════════════╣{X}
-{C}{B}║{X}  To start:
-{C}{B}║{X}    cd {project_dir}
-{C}{B}║{X}    source .venv/bin/activate
-{C}{B}║{X}    claude .
+{C}{B}║{X}  ✅  Launching Claude Code...
 {C}{B}╚══════════════════════════════════════════════════╝{X}
 """)
 
 def maybe_open_claude(project_dir: Path):
-    ans = input("Open Claude Code in the new project now? [Y/n]: ").strip() or "Y"
-    if ans.lower() == "y":
-        os.chdir(project_dir)
-        venv_python = project_dir / ".venv" / "bin" / "python"
-        if shutil.which("claude"):
-            subprocess.run(["claude", "."])
-        else:
-            print(f"{Y}Claude Code CLI not found. Install: npm install -g @anthropic/claude-code{X}")
-            print(f"Then run: {B}cd {project_dir} && source .venv/bin/activate && claude .{X}")
+    print(f"{G}▶ Launching Claude Code in your new project...{X}")
+    os.chdir(project_dir)
+    if shutil.which("claude"):
+        subprocess.run(["claude", "."])
+    else:
+        print(f"{Y}Claude Code CLI not found. Install: npm install -g @anthropic-ai/claude-code{X}")
+        print(f"Then run: {B}cd {project_dir} && source .venv/bin/activate && claude .{X}")
 
-def claude_code_mode():
-    print(f"""
-{G}▶ Claude Code mode selected.{X}
-
-  Claude will read CLAUDE.md and guide you through the full pipeline.
-
-  {B}To start:{X}
-    1. Install Claude Code CLI (if needed):
-       npm install -g @anthropic/claude-code
-    2. Run:
-       claude .
-""")
-    ans = input("Open Claude Code now? [Y/n]: ").strip() or "Y"
-    if ans.lower() == "y":
-        if shutil.which("claude"):
-            subprocess.run(["claude", "."])
-        else:
-            print(f"{Y}Claude Code CLI not found. Install: npm install -g @anthropic/claude-code{X}")
 
 if __name__ == "__main__":
     banner()
     choice = mode_select()
 
     if choice == "1":
-        # Hand off to shell script
         script = Path(__file__).parent / "start.sh"
         os.execv("/bin/bash", ["/bin/bash", str(script)])
 
-    if choice == "3":
-        claude_code_mode()
-        sys.exit(0)
-
-    # Python CLI mode (choice == "2" or default)
-    cfg          = collect_inputs()
-    project_dir  = create_project(cfg)
-    create_venv(project_dir)
+    # choices "2" and "3" both go through full project setup + launch
+    cfg         = collect_inputs()
+    project_dir = create_project(cfg)
     copy_template(Path(__file__).parent.resolve(), project_dir)
     copy_dataset(cfg, project_dir)
     write_config(cfg, project_dir)
+    create_venv(project_dir)
     show_summary(cfg, project_dir)
     maybe_open_claude(project_dir)

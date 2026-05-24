@@ -114,11 +114,23 @@ Delegate to a sub-agent whenever a task is **token-heavy, self-contained, or pro
 
 1. **Check for `.ml_config.json`** in the project root:
    - If found: read `dataset_path`, `target_column`, `deployment_platform`, `github_username`, `github_repo`, `github_visibility` from it.
-   - If not found: ask — "Please provide your dataset CSV path:", "Which column is the target variable?", "Your GitHub username:", and "GitHub repo name (default: project name):".
+   - If not found: ask the user for the following, **ONE question at a time**:
+     1. "What is your dataset CSV path?" — accept a full file path OR a filename if the file is already in `data/`. If the user presses Enter without providing a path, check the `data/` folder for any `.csv` file and use it if found; otherwise ask again.
+     2. "Which column is the target variable? (or press Enter to auto-detect)"
+     3. "What is your GitHub username? (press Enter to skip)"
+     4. "What should the GitHub repo be named? (default: `<project_name>`)"
+     5. "Deployment platform? [render / fly.io / railway / aws / gcp / azure / none]"
+     Then write all answers to `.ml_config.json` before proceeding.
 
 2. **Check for `.venv/`** virtual environment:
-   - If missing: run `python3 -m venv .venv` → `source .venv/bin/activate` → `pip install -r requirements.txt`. Mark Step 0 complete.
-   - If exists: run `source .venv/bin/activate`.
+   - If `.venv/` is missing:
+     1. Run: `python3 -m venv .venv`
+     2. Run: `.venv/bin/pip install --upgrade pip -q`
+     3. Run: `.venv/bin/pip install -r requirements.txt -q`
+     4. For all subsequent Python commands, use `.venv/bin/python` (not `python3`).
+     Mark Step 0 complete.
+   - If `.venv/` exists:
+     - Use `.venv/bin/python` and `.venv/bin/pip` for all commands.
 
 3. **Auto-detect task type** from the target column:
    - If target has ≤ 20 unique values or dtype is object/bool → **Classification**
@@ -126,7 +138,17 @@ Delegate to a sub-agent whenever a task is **token-heavy, self-contained, or pro
 
 4. **Scan the workspace** for the CSV file; read its first 5 rows and column names.
 
-5. **Confirm with user**: "Dataset: X rows × Y cols | Target: COLUMN | Task: TYPE — proceed? [Y/n]"
+5. **Show confirmation summary** and wait for the user to confirm before proceeding:
+   ```
+   Dataset   : <dataset_path>
+   Target    : <target_column>
+   Task      : <auto-detected type: Classification or Regression>
+   Platform  : <deployment_platform>
+   GitHub    : https://github.com/<github_username>/<github_repo>
+
+   Proceed with the pipeline? [Y/n]
+   ```
+   Only continue after the user confirms with Y (or Enter).
 
 6. Once confirmed, immediately launch the EDA Agent (Step 2).
 '''
@@ -816,19 +838,13 @@ if [ "$ENTRY_MODE" = "2" ]; then
     exec python3 "$(dirname "$0")/init.py"
 fi
 
+LAUNCH_CLAUDE=false
+
 if [ "$ENTRY_MODE" = "3" ]; then
+    LAUNCH_CLAUDE=true
     echo ""
-    echo -e "${GREEN}▶ Claude Code mode selected — launching now...${RESET}"
+    echo -e "${GREEN}▶ Claude Code mode — setting up your project first...${RESET}"
     echo ""
-    if command -v claude &>/dev/null; then
-        claude .
-    else
-        echo -e "${RED}Claude Code CLI not found. Install it with:${RESET}"
-        echo "  npm install -g @anthropic-ai/claude-code"
-        echo ""
-        echo "Then run: claude ."
-    fi
-    exit 0
 fi
 
 # ── Step 2: Shell mode — collect project info ──────────────────────
@@ -919,12 +935,7 @@ mkdir -p "$PROJECT_DIR"
 echo ""
 echo -e "${GREEN}▶ Creating project at: $PROJECT_DIR${RESET}"
 
-# ── Step 4: Create Python venv ─────────────────────────────────────
-echo -e "${GREEN}▶ Creating Python virtual environment (.venv)...${RESET}"
-python3 -m venv "$PROJECT_DIR/.venv"
-echo -e "  ${GREEN}✔ Virtual environment ready${RESET}"
-
-# ── Step 5: Copy template files ────────────────────────────────────
+# ── Step 4: Copy template files ────────────────────────────────────
 echo -e "${GREEN}▶ Copying template files...${RESET}"
 rsync -a \
     --exclude='.git/' \
@@ -939,14 +950,14 @@ rsync -a \
     "$TEMPLATE_DIR/" "$PROJECT_DIR/"
 echo -e "  ${GREEN}✔ Template files copied${RESET}"
 
-# ── Step 6: Copy dataset if provided ──────────────────────────────
+# ── Step 5: Copy dataset if provided ──────────────────────────────
 if [ -n "$DATASET_PATH" ] && [ -f "$DATASET_PATH" ]; then
     mkdir -p "$PROJECT_DIR/data"
     cp "$DATASET_PATH" "$PROJECT_DIR/data/"
     echo -e "  ${GREEN}✔ Dataset copied: $DATASET_FILENAME${RESET}"
 fi
 
-# ── Step 7: Write .ml_config.json ─────────────────────────────────
+# ── Step 6: Write .ml_config.json ─────────────────────────────────
 DATASET_FILENAME_SAFE="${DATASET_FILENAME:-<not provided yet>}"
 PY_VER=$(python3 --version 2>&1 | awk '{print $2}')
 CREATED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -971,7 +982,16 @@ cat > "$PROJECT_DIR/.ml_config.json" << CONFIGEOF
 CONFIGEOF
 echo -e "  ${GREEN}✔ .ml_config.json written${RESET}"
 
-# ── Step 9: Completion summary ─────────────────────────────────────
+# ── Step 7: Create Python venv ─────────────────────────────────────
+echo -e "${GREEN}▶ Creating Python virtual environment (.venv)...${RESET}"
+python3 -m venv "$PROJECT_DIR/.venv"
+echo -e "  ${GREEN}✔ Virtual environment ready${RESET}"
+echo -e "${GREEN}▶ Installing dependencies (this may take a minute)...${RESET}"
+"$PROJECT_DIR/.venv/bin/pip" install --upgrade pip -q
+"$PROJECT_DIR/.venv/bin/pip" install -r "$PROJECT_DIR/requirements.txt" -q
+echo -e "  ${GREEN}✔ Dependencies installed${RESET}"
+
+# ── Step 8: Completion summary ─────────────────────────────────────
 echo ""
 echo -e "${CYAN}${BOLD}╔══════════════════════════════════════════════════╗${RESET}"
 echo -e "${CYAN}${BOLD}║  ✅  Project ready!                              ║${RESET}"
@@ -984,14 +1004,11 @@ if [ -n "$GH_USER" ]; then
     printf "${CYAN}${BOLD}║${RESET}  🐙  GitHub : %-34s${CYAN}${BOLD}║${RESET}\n" "github.com/${GH_USER}/${GH_REPO:-$PROJECT_NAME}"
 fi
 echo -e "${CYAN}${BOLD}╠══════════════════════════════════════════════════╣${RESET}"
-echo -e "${CYAN}${BOLD}║${RESET}  To start:                                       ${CYAN}${BOLD}║${RESET}"
-echo -e "${CYAN}${BOLD}║${RESET}    cd $(echo "$PROJECT_DIR" | sed 's|.*Downloads/||')${CYAN}${BOLD}║${RESET}"
-echo -e "${CYAN}${BOLD}║${RESET}    source .venv/bin/activate                     ${CYAN}${BOLD}║${RESET}"
-echo -e "${CYAN}${BOLD}║${RESET}    claude .                                       ${CYAN}${BOLD}║${RESET}"
+echo -e "${CYAN}${BOLD}║  ✅  Launching Claude Code...                    ║${RESET}"
 echo -e "${CYAN}${BOLD}╚══════════════════════════════════════════════════╝${RESET}"
 echo ""
 
-# ── Step 10: Launch Claude Code ───────────────────────────────────
+# ── Step 9: Launch Claude Code ────────────────────────────────────
 echo -e "${GREEN}▶ Launching Claude Code in your new project...${RESET}"
 cd "$PROJECT_DIR"
 source ".venv/bin/activate"
@@ -1156,9 +1173,16 @@ def create_project(cfg: dict) -> Path:
     return project_dir
 
 def create_venv(project_dir: Path):
-    print(f"{G}▶ Creating Python virtual environment (.venv)...{X}")
+    print(f"{G}▶ Setting up Python environment...{X}")
     subprocess.run([sys.executable, "-m", "venv", str(project_dir / ".venv")], check=True)
-    print(f"  {G}✔ Virtual environment ready{X}")
+    print(f"  {G}✔ Virtual environment created{X}")
+    print(f"{G}▶ Installing dependencies (this may take a minute)...{X}")
+    pip = str(project_dir / ".venv" / "bin" / "pip")
+    subprocess.run([pip, "install", "--upgrade", "pip", "-q"], check=True)
+    req = project_dir / "requirements.txt"
+    if req.exists():
+        subprocess.run([pip, "install", "-r", str(req), "-q"], check=True)
+    print(f"  {G}✔ Dependencies installed{X}")
 
 EXCLUDE = {
     ".git", "__pycache__", ".venv", ".DS_Store",
@@ -1226,63 +1250,35 @@ def show_summary(cfg: dict, project_dir: Path):
 {C}{B}║{X}  📊  Data   : {fn}
 {C}{B}║{X}  🚀  Deploy : {plat}{gh_line}
 {C}{B}╠══════════════════════════════════════════════════╣{X}
-{C}{B}║{X}  To start:
-{C}{B}║{X}    cd {project_dir}
-{C}{B}║{X}    source .venv/bin/activate
-{C}{B}║{X}    claude .
+{C}{B}║{X}  ✅  Launching Claude Code...
 {C}{B}╚══════════════════════════════════════════════════╝{X}
 """)
 
 def maybe_open_claude(project_dir: Path):
-    ans = input("Open Claude Code in the new project now? [Y/n]: ").strip() or "Y"
-    if ans.lower() == "y":
-        os.chdir(project_dir)
-        venv_python = project_dir / ".venv" / "bin" / "python"
-        if shutil.which("claude"):
-            subprocess.run(["claude", "."])
-        else:
-            print(f"{Y}Claude Code CLI not found. Install: npm install -g @anthropic-ai/claude-code{X}")
-            print(f"Then run: {B}cd {project_dir} && source .venv/bin/activate && claude .{X}")
+    print(f"{G}▶ Launching Claude Code in your new project...{X}")
+    os.chdir(project_dir)
+    if shutil.which("claude"):
+        subprocess.run(["claude", "."])
+    else:
+        print(f"{Y}Claude Code CLI not found. Install: npm install -g @anthropic-ai/claude-code{X}")
+        print(f"Then run: {B}cd {project_dir} && source .venv/bin/activate && claude .{X}")
 
-def claude_code_mode():
-    print(f"""
-{G}▶ Claude Code mode selected.{X}
-
-  Claude will read CLAUDE.md and guide you through the full pipeline.
-
-  {B}To start:{X}
-    1. Install Claude Code CLI (if needed):
-       npm install -g @anthropic-ai/claude-code
-    2. Run:
-       claude .
-""")
-    ans = input("Open Claude Code now? [Y/n]: ").strip() or "Y"
-    if ans.lower() == "y":
-        if shutil.which("claude"):
-            subprocess.run(["claude", "."])
-        else:
-            print(f"{Y}Claude Code CLI not found. Install: npm install -g @anthropic-ai/claude-code{X}")
 
 if __name__ == "__main__":
     banner()
     choice = mode_select()
 
     if choice == "1":
-        # Hand off to shell script
         script = Path(__file__).parent / "start.sh"
         os.execv("/bin/bash", ["/bin/bash", str(script)])
 
-    if choice == "3":
-        claude_code_mode()
-        sys.exit(0)
-
-    # Python CLI mode (choice == "2" or default)
-    cfg          = collect_inputs()
-    project_dir  = create_project(cfg)
-    create_venv(project_dir)
+    # choices "2" and "3" both go through full project setup + launch
+    cfg         = collect_inputs()
+    project_dir = create_project(cfg)
     copy_template(Path(__file__).parent.resolve(), project_dir)
     copy_dataset(cfg, project_dir)
     write_config(cfg, project_dir)
+    create_venv(project_dir)
     show_summary(cfg, project_dir)
     maybe_open_claude(project_dir)
 '''

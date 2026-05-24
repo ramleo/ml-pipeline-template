@@ -69,19 +69,13 @@ if [ "$ENTRY_MODE" = "2" ]; then
     exec python3 "$(dirname "$0")/init.py"
 fi
 
+LAUNCH_CLAUDE=false
+
 if [ "$ENTRY_MODE" = "3" ]; then
+    LAUNCH_CLAUDE=true
     echo ""
-    echo -e "${GREEN}▶ Claude Code mode selected — launching now...${RESET}"
+    echo -e "${GREEN}▶ Claude Code mode — setting up your project first...${RESET}"
     echo ""
-    if command -v claude &>/dev/null; then
-        claude .
-    else
-        echo -e "${RED}Claude Code CLI not found. Install it with:${RESET}"
-        echo "  npm install -g @anthropic/claude-code"
-        echo ""
-        echo "Then run: claude ."
-    fi
-    exit 0
 fi
 
 # ── Step 2: Shell mode — collect project info ──────────────────────
@@ -172,12 +166,7 @@ mkdir -p "$PROJECT_DIR"
 echo ""
 echo -e "${GREEN}▶ Creating project at: $PROJECT_DIR${RESET}"
 
-# ── Step 4: Create Python venv ─────────────────────────────────────
-echo -e "${GREEN}▶ Creating Python virtual environment (.venv)...${RESET}"
-python3 -m venv "$PROJECT_DIR/.venv"
-echo -e "  ${GREEN}✔ Virtual environment ready${RESET}"
-
-# ── Step 5: Copy template files ────────────────────────────────────
+# ── Step 4: Copy template files ────────────────────────────────────
 echo -e "${GREEN}▶ Copying template files...${RESET}"
 rsync -a \
     --exclude='.git/' \
@@ -192,14 +181,14 @@ rsync -a \
     "$TEMPLATE_DIR/" "$PROJECT_DIR/"
 echo -e "  ${GREEN}✔ Template files copied${RESET}"
 
-# ── Step 6: Copy dataset if provided ──────────────────────────────
+# ── Step 5: Copy dataset if provided ──────────────────────────────
 if [ -n "$DATASET_PATH" ] && [ -f "$DATASET_PATH" ]; then
     mkdir -p "$PROJECT_DIR/data"
     cp "$DATASET_PATH" "$PROJECT_DIR/data/"
     echo -e "  ${GREEN}✔ Dataset copied: $DATASET_FILENAME${RESET}"
 fi
 
-# ── Step 7: Write .ml_config.json ─────────────────────────────────
+# ── Step 6: Write .ml_config.json ─────────────────────────────────
 DATASET_FILENAME_SAFE="${DATASET_FILENAME:-<not provided yet>}"
 PY_VER=$(python3 --version 2>&1 | awk '{print $2}')
 CREATED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -224,7 +213,16 @@ cat > "$PROJECT_DIR/.ml_config.json" << CONFIGEOF
 CONFIGEOF
 echo -e "  ${GREEN}✔ .ml_config.json written${RESET}"
 
-# ── Step 9: Completion summary ─────────────────────────────────────
+# ── Step 7: Create Python venv ─────────────────────────────────────
+echo -e "${GREEN}▶ Creating Python virtual environment (.venv)...${RESET}"
+python3 -m venv "$PROJECT_DIR/.venv"
+echo -e "  ${GREEN}✔ Virtual environment ready${RESET}"
+echo -e "${GREEN}▶ Installing dependencies (this may take a minute)...${RESET}"
+"$PROJECT_DIR/.venv/bin/pip" install --upgrade pip -q
+"$PROJECT_DIR/.venv/bin/pip" install -r "$PROJECT_DIR/requirements.txt" -q
+echo -e "  ${GREEN}✔ Dependencies installed${RESET}"
+
+# ── Step 8: Completion summary ─────────────────────────────────────
 echo ""
 echo -e "${CYAN}${BOLD}╔══════════════════════════════════════════════════╗${RESET}"
 echo -e "${CYAN}${BOLD}║  ✅  Project ready!                              ║${RESET}"
@@ -237,20 +235,17 @@ if [ -n "$GH_USER" ]; then
     printf "${CYAN}${BOLD}║${RESET}  🐙  GitHub : %-34s${CYAN}${BOLD}║${RESET}\n" "github.com/${GH_USER}/${GH_REPO:-$PROJECT_NAME}"
 fi
 echo -e "${CYAN}${BOLD}╠══════════════════════════════════════════════════╣${RESET}"
-echo -e "${CYAN}${BOLD}║${RESET}  To start:                                       ${CYAN}${BOLD}║${RESET}"
-echo -e "${CYAN}${BOLD}║${RESET}    cd $(echo "$PROJECT_DIR" | sed 's|.*Downloads/||')${CYAN}${BOLD}║${RESET}"
-echo -e "${CYAN}${BOLD}║${RESET}    source .venv/bin/activate                     ${CYAN}${BOLD}║${RESET}"
-echo -e "${CYAN}${BOLD}║${RESET}    claude .                                       ${CYAN}${BOLD}║${RESET}"
+echo -e "${CYAN}${BOLD}║  ✅  Launching Claude Code...                    ║${RESET}"
 echo -e "${CYAN}${BOLD}╚══════════════════════════════════════════════════╝${RESET}"
 echo ""
 
-# ── Step 10: Launch Claude Code ───────────────────────────────────
+# ── Step 9: Launch Claude Code ────────────────────────────────────
 echo -e "${GREEN}▶ Launching Claude Code in your new project...${RESET}"
 cd "$PROJECT_DIR"
 source ".venv/bin/activate"
 if command -v claude &>/dev/null; then
     claude .
 else
-    echo -e "${YELLOW}Claude Code CLI not found. Install: npm install -g @anthropic/claude-code${RESET}"
+    echo -e "${YELLOW}Claude Code CLI not found. Install: npm install -g @anthropic-ai/claude-code${RESET}"
     echo -e "Then run: ${BOLD}cd $PROJECT_DIR && source .venv/bin/activate && claude .${RESET}"
 fi
