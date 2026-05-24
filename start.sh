@@ -17,6 +17,39 @@ echo -e "${CYAN}${BOLD}║   End-to-End Machine Learning Automation         ║$
 echo -e "${CYAN}${BOLD}╚══════════════════════════════════════════════════╝${RESET}"
 echo ""
 
+# ── Prerequisites Auto-Install ─────────────────────────────────────
+echo -e "${BOLD}Checking prerequisites...${RESET}"
+set +e  # allow failures during install
+
+# 1. Homebrew (macOS)
+if ! command -v brew &>/dev/null; then
+    echo -e "${YELLOW}⚠  Homebrew not found — installing (follow the prompts)...${RESET}"
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    [[ -f "/opt/homebrew/bin/brew" ]] && eval "$(/opt/homebrew/bin/brew shellenv)"
+else
+    echo -e "  ${GREEN}✔ Homebrew${RESET}"
+fi
+
+# 2. Node.js / npm
+if ! command -v npm &>/dev/null; then
+    echo -e "${YELLOW}⚠  Node.js not found — installing via Homebrew...${RESET}"
+    brew install node
+else
+    echo -e "  ${GREEN}✔ Node.js $(node --version)${RESET}"
+fi
+
+# 3. Claude Code CLI
+if ! command -v claude &>/dev/null; then
+    echo -e "${YELLOW}⚠  Claude Code CLI not found — installing...${RESET}"
+    npm install -g @anthropic/claude-code
+    echo -e "  ${GREEN}✔ Claude Code CLI installed${RESET}"
+else
+    echo -e "  ${GREEN}✔ Claude Code CLI $(claude --version 2>/dev/null | head -1)${RESET}"
+fi
+
+set -e  # restore exit-on-error
+echo ""
+
 # ── Step 1: Choose entry point ─────────────────────────────────────
 echo -e "${BOLD}How would you like to run this template?${RESET}"
 echo "  1) Shell script  — guided prompts here in the terminal"

@@ -13,7 +13,7 @@ Via Docker:
   docker run --rm -v $(pwd):/output ml-pipeline-template
 """
 
-import os, sys, stat
+import os, sys, stat, shutil, subprocess
 from pathlib import Path
 
 # ── Config ──────────────────────────────────────────────────────────
@@ -764,6 +764,39 @@ echo -e "${CYAN}${BOLD}║   End-to-End Machine Learning Automation         ║$
 echo -e "${CYAN}${BOLD}╚══════════════════════════════════════════════════╝${RESET}"
 echo ""
 
+# ── Prerequisites Auto-Install ─────────────────────────────────────
+echo -e "${BOLD}Checking prerequisites...${RESET}"
+set +e  # allow failures during install
+
+# 1. Homebrew (macOS)
+if ! command -v brew &>/dev/null; then
+    echo -e "${YELLOW}⚠  Homebrew not found — installing (follow the prompts)...${RESET}"
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    [[ -f "/opt/homebrew/bin/brew" ]] && eval "$(/opt/homebrew/bin/brew shellenv)"
+else
+    echo -e "  ${GREEN}✔ Homebrew${RESET}"
+fi
+
+# 2. Node.js / npm
+if ! command -v npm &>/dev/null; then
+    echo -e "${YELLOW}⚠  Node.js not found — installing via Homebrew...${RESET}"
+    brew install node
+else
+    echo -e "  ${GREEN}✔ Node.js $(node --version)${RESET}"
+fi
+
+# 3. Claude Code CLI
+if ! command -v claude &>/dev/null; then
+    echo -e "${YELLOW}⚠  Claude Code CLI not found — installing...${RESET}"
+    npm install -g @anthropic/claude-code
+    echo -e "  ${GREEN}✔ Claude Code CLI installed${RESET}"
+else
+    echo -e "  ${GREEN}✔ Claude Code CLI $(claude --version 2>/dev/null | head -1)${RESET}"
+fi
+
+set -e  # restore exit-on-error
+echo ""
+
 # ── Step 1: Choose entry point ─────────────────────────────────────
 echo -e "${BOLD}How would you like to run this template?${RESET}"
 echo "  1) Shell script  — guided prompts here in the terminal"
@@ -1441,6 +1474,45 @@ for exe in ["start.sh"]:
     p = root / exe
     if p.exists():
         p.chmod(p.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+
+# ── Prerequisites Check ──────────────────────────────────────────────
+def check_prereqs():
+    print(f"\n{C}{B}Checking prerequisites...{X}")
+
+    def _run(cmd):
+        try:
+            return subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            return None
+
+    # 1. Homebrew (macOS)
+    if shutil.which("brew"):
+        print(f"  {G}✔ Homebrew{X}")
+    else:
+        print(f"  {Y}⚠  Homebrew not found — installing (follow the prompts)...{X}")
+        os.system('/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"')
+        if Path("/opt/homebrew/bin/brew").exists():
+            os.environ["PATH"] = "/opt/homebrew/bin:" + os.environ.get("PATH", "")
+
+    # 2. Node.js / npm
+    if shutil.which("npm"):
+        r = _run(["node", "--version"])
+        print(f"  {G}✔ Node.js {r.stdout.strip() if r else ''}{X}")
+    else:
+        print(f"  {Y}⚠  Node.js not found — installing via Homebrew...{X}")
+        os.system("brew install node")
+
+    # 3. Claude Code CLI
+    if shutil.which("claude"):
+        r = _run(["claude", "--version"])
+        ver = r.stdout.strip().split("\n")[0] if r else "installed"
+        print(f"  {G}✔ Claude Code CLI {ver}{X}")
+    else:
+        print(f"  {Y}⚠  Claude Code CLI not found — installing...{X}")
+        os.system("npm install -g @anthropic/claude-code")
+        print(f"  {G}✔ Claude Code CLI installed{X}")
+
+check_prereqs()
 
 # ── Done ─────────────────────────────────────────────────────────────
 print(f"""
