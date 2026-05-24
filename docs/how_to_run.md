@@ -4,38 +4,52 @@
 
 ## Prerequisites
 
-Only **Python 3.9+** must be installed manually — `start.sh` and `bootstrap.py` auto-install everything else.
+Only **Python 3.9+** must be installed manually — everything else is handled automatically.
 
 | Tool | How |
 |---|---|
 | Python 3.9+ | Manual — [python.org](https://python.org) |
-| Homebrew | **Auto-installed** by `./start.sh` / `bootstrap.py` |
-| Node.js | **Auto-installed** by `./start.sh` / `bootstrap.py` |
-| Claude Code CLI | **Auto-installed** by `./start.sh` / `bootstrap.py` |
+| Homebrew | **Auto-installed** by `./start.sh` or `bootstrap.py` |
+| Node.js | **Auto-installed** by `./start.sh` or `bootstrap.py` |
+| Claude Code CLI | **Auto-installed** by `./start.sh` or `bootstrap.py` |
 | GitHub CLI *(optional)* | `brew install gh` then `gh auth login` |
 | Docker *(optional)* | [docker.com](https://docker.com) |
 
 ---
 
-## Step 1 — Download the bootstrap script
+## Step 1 — Check Python
+
+```bash
+python3 --version
+```
+
+If you get `command not found`, install Python 3.9+ from [python.org](https://python.org) before continuing.
+
+---
+
+## Step 2 — Download the bootstrap script
 
 ```bash
 curl -O https://raw.githubusercontent.com/ramleo/ml-pipeline-template/main/bootstrap.py
 ```
 
+This downloads a single installer file — no git, no GitHub account required.
+
 ---
 
-## Step 2 — Run it
+## Step 3 — Run the bootstrap
 
 ```bash
 python3 bootstrap.py
 ```
 
-This creates `ml-pipeline-template/` in your current directory with all template files.
+This will:
+- Create a `ml-pipeline-template/` folder with all template files
+- Auto-install **Homebrew**, **Node.js**, and **Claude Code CLI** if they're missing
 
 ---
 
-## Step 3 — Enter the template folder
+## Step 4 — Enter the template folder
 
 ```bash
 cd ml-pipeline-template
@@ -43,61 +57,66 @@ cd ml-pipeline-template
 
 ---
 
-## Step 4 — Start the wizard (pick one)
+## Step 5 — Start the wizard
 
-| Option | Command | Best for |
-|---|---|---|
-| **Claude Code** *(recommended)* | `claude .` | Fully AI-driven, hands-free |
-| **Shell wizard** | `./start.sh` | Guided terminal prompts |
-| **Python wizard** | `python3 init.py` | Richer prompts, same as shell |
+```bash
+./start.sh
+```
 
----
-
-## Step 5 — Answer the prompts
-
-Whichever option you chose, you will be asked:
-
-1. **Project name** — e.g. `house-price-predictor`
-2. **Dataset CSV path** — full path to your `.csv` file (or skip to drop it in later)
-3. **Deployment platform** — Render, Fly.io, Railway, AWS, GCP, Azure, or skip
-4. **GitHub username** — auto-detected if you are logged into `gh`; or type it; or skip
-5. **Repo visibility** — public or private
-
----
-
-## Step 6 — Claude runs the pipeline
-
-A new project folder is created one level up (e.g. `../house-price-predictor_20260524_143000/`).  
-Claude then works through the 14-step checklist automatically:
-
-| Step | Task |
-|---|---|
-| 0 | Creates Python virtual environment (`.venv`) |
-| 1 | Scans workspace, finds your CSV |
-| 2 | EDA — plots saved to `plots/` |
-| 3 | Preprocessing — writes `src/preprocess.py` |
-| 4–6 | Model training, tuning & evaluation |
-| 7 | Saves final pipeline to `models/final_pipeline.pkl` |
-| 8 | Summary report → `docs/summary.md` |
-| 9 | Generates `requirements.txt` with pinned versions |
-| 10 | Reorganises workspace into standard folder structure |
-| 11 | Git init → first commit → GitHub repo created → push |
-| 12 | Dockerfile written, image built & smoke-tested locally |
-| 13 | Deploys to your chosen cloud platform |
-
----
-
-## Folder layout after bootstrap
+The script checks prerequisites (installs anything still missing), then shows a menu:
 
 ```
-ml-pipeline-template/          ← the template (stays untouched between runs)
-│
-└── (after running ./start.sh or claude .)
+How would you like to run this template?
+  1) Shell script  — guided prompts here in the terminal
+  2) Python CLI    — richer prompts via init.py
+  3) Claude Code   — AI-driven, fully automated (recommended)
+```
 
-house-price-predictor_20260524_143000/    ← your new isolated ML project
+Choose **3** (or press Enter — it is the default).
+
+---
+
+## Step 6 — Answer Claude's questions
+
+Claude will ask for:
+
+| Question | Example |
+|---|---|
+| Path to your CSV file | `/Users/yourname/Downloads/titanic.csv` |
+| Target column | `Survived` (Claude can auto-detect this) |
+| Deployment platform | Render, Fly.io, Railway, AWS, GCP, Azure, or skip |
+| GitHub username | `your-github-username` (optional) |
+
+---
+
+## Step 7 — Pipeline runs automatically
+
+Claude works through the full pipeline checklist:
+
+| Step | Task | Output |
+|---|---|---|
+| 0 | Create Python virtual environment | `.venv/` |
+| 1 | Scan workspace, find CSV | — |
+| 2 | EDA — profile data, plot charts | `plots/` |
+| 3 | Preprocessing — clean & encode | `src/preprocess.py` |
+| 4–6 | Train, tune & evaluate models | metrics report |
+| 7 | Save final pipeline | `models/final_pipeline.pkl` |
+| 8 | Write summary report | `docs/summary.md` |
+| 9 | Pin dependencies | `requirements.txt` |
+| 10 | Reorganise workspace | clean folder structure |
+| 11 | Git init → GitHub repo → push | GitHub URL |
+| 12 | Dockerfile → build → smoke-test | Docker image |
+| 13 | Deploy to chosen cloud platform | live URL |
+
+---
+
+## Folder layout after the pipeline
+
+```
+your-project_20260524_143000/
 ├── .venv/                  ← Python virtual environment
 ├── .ml_config.json         ← your choices (dataset, platform, GitHub)
-├── data/                   ← your CSV file goes here
+├── data/                   ← your CSV file
 ├── models/                 ← trained pipeline artifacts (.pkl)
 ├── plots/                  ← EDA charts (.png)
 ├── src/preprocess.py       ← auto-generated preprocessing script
@@ -115,17 +134,14 @@ house-price-predictor_20260524_143000/    ← your new isolated ML project
 
 ## Alternative: get the template via Docker
 
-If you prefer not to run Python directly, use Docker to scaffold the template:
+If you prefer not to run Python directly:
 
 ```bash
-# Build the Docker image once
 docker build -t ml-pipeline-template -f Dockerfile.bootstrap \
   https://raw.githubusercontent.com/ramleo/ml-pipeline-template/main/Dockerfile.bootstrap
 
-# Run it — creates ml-pipeline-template/ in your current directory
 docker run --rm -v $(pwd):/output ml-pipeline-template
 
-# Then start normally
 cd ml-pipeline-template
 ./start.sh
 ```
@@ -142,19 +158,17 @@ cd ml-pipeline-template
 
 ---
 
-## Quick reference card
+## Quick reference
 
 ```bash
-# 1. Get it
-curl -O https://raw.githubusercontent.com/ramleo/ml-pipeline-template/main/bootstrap.py
-
-# 2. Create the template folder
-python3 bootstrap.py
-
-# 3. Go in and launch
-cd ml-pipeline-template
-claude .
+python3 --version          # 1. confirm Python is installed
+curl -O <bootstrap_url>    # 2. download installer
+python3 bootstrap.py       # 3. create template + auto-install tools
+cd ml-pipeline-template    # 4. enter folder
+./start.sh                 # 5. launch — choose option 3
 ```
+
+*(Replace `<bootstrap_url>` with `https://raw.githubusercontent.com/ramleo/ml-pipeline-template/main/bootstrap.py`)*
 
 ---
 
@@ -163,8 +177,8 @@ claude .
 | Problem | Fix |
 |---|---|
 | `python3: command not found` | Install Python 3.9+ from [python.org](https://python.org) |
-| `claude: command not found` | Run `./start.sh` — it auto-installs Claude Code CLI, or manually: `npm install -g @anthropic/claude-code` |
-| `gh: command not found` | Run `brew install gh` then `gh auth login` |
+| `claude: command not found` | Run `./start.sh` — it auto-installs Claude Code CLI |
 | `Permission denied: ./start.sh` | Run `chmod +x start.sh` first |
-| Dataset not found | Copy your `.csv` into the project's `data/` folder manually, then tell Claude its name |
+| Dataset not found | Copy your `.csv` into the project's `data/` folder, then tell Claude its name |
 | `ml-pipeline-template/` already exists | Run `python3 bootstrap.py my-new-name` to use a different folder name |
+| Homebrew install hangs | Accept the Xcode Command Line Tools prompt that appears |
