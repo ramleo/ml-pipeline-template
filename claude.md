@@ -71,6 +71,13 @@ Delegate to a sub-agent whenever a task is **token-heavy, self-contained, or pro
 **Agent must:** Execute all git commands, create the GitHub repo, push the code, verify the remote is set; return ONLY the GitHub repo URL and confirmation.
 **Returns:** GitHub repo URL, commit hash, push confirmation, any errors.
 
+### ☁️ Cloud Deploy Agent
+**Trigger:** Step 14 — Generic Cloud Deployment
+**Delegate when:** Provisioning cloud infrastructure and deploying the containerised API to any cloud platform (Render, AWS, GCP, Azure, Fly.io, Railway, etc.).
+**Input to provide:** Target platform name, Docker image name, GitHub repo URL, project name, required env vars, desired region, instance/tier preference (free/standard).
+**Agent must:** Generate the platform-specific config file(s), create all required cloud resources (container registry push if needed, service/task definition, load balancer, secrets), deploy the service, run smoke tests against the live URL; return ONLY the live URL, config file paths, and smoke-test outputs.
+**Returns:** Live service URL, config files created, resource names provisioned, smoke-test results (`/health` + `/predict`), any warnings or quota notes.
+
 ## Token Conservation Rules
 1. **Never** paste raw CSV data, full training logs, or large DataFrames into the main session.
 2. **Never** return a full generated script to the main session — return confirmation + printed output only.
@@ -103,6 +110,7 @@ Delegate to a sub-agent whenever a task is **token-heavy, self-contained, or pro
 - [x] 11. Git Initialisation & GitHub Push (git init → .gitignore → commit → gh repo create → push)
 - [x] 12. Dockerfile & Containerisation (Multi-stage Dockerfile + .dockerignore; build & test locally; push to GitHub)
 - [x] 13. Render Deployment (Deploy FastAPI app from GitHub repo via render.yaml; document live endpoints)
+- [ ] 14. Generic Cloud Deployment (Optional: deploy to AWS / GCP / Azure / Fly.io / Railway using Cloud Deploy Agent)
 
 # Instructions for Initialization
 Read this file, scan the workspace directory to locate the target CSV file, and read its first 5 rows. Identify the potential target variables, print them out for the user, and ask: "Which column is the target variable?". Once the user answers, immediately launch the EDA Agent to execute Step 2.
@@ -316,5 +324,256 @@ Document the following in `docs/deployment_guide.md`:
 ```bash
 git add render.yaml docs/deployment_guide.md
 git commit -m "Add render.yaml and deployment guide"
+git push origin main
+```
+
+---
+
+# Generic Cloud Deployment Instructions
+
+## Step 14 — Deploy to Any Cloud Platform (via Cloud Deploy Agent)
+Perform this step after the Dockerfile and GitHub repo exist (Steps 11–12). This step is **platform-agnostic** — the Cloud Deploy Agent selects the appropriate config, provisions all required infrastructure, and deploys the containerised FastAPI service automatically.
+
+### 14a — Platform Selection
+Ask the user (or auto-select based on context):
+
+| Platform | Best For | Free Tier | Config File |
+|---|---|---|---|
+| **Render** | Simplest deploy from GitHub | ✅ Yes | `render.yaml` |
+| **Fly.io** | Global edge, fast cold starts | ✅ Yes | `fly.toml` |
+| **Railway** | One-click GitHub deploy | ✅ Yes | `railway.toml` |
+| **AWS ECS (Fargate)** | Production, auto-scaling | ❌ Paid | `task-definition.json` + `ecs-service.json` |
+| **AWS App Runner** | Easiest managed AWS container | ✅ Free tier | `apprunner.yaml` |
+| **GCP Cloud Run** | Serverless containers, pay-per-use | ✅ Free tier | `cloudrun.yaml` |
+| **Azure Container Apps** | Serverless containers on Azure | ✅ Free tier | `containerapp.yaml` |
+
+### 14b — Prerequisites Checklist
+Before deploying to any platform, verify all of the following exist:
+```
+✅ app.py              — FastAPI app at project root
+✅ Dockerfile          — multi-stage build at project root
+✅ requirements.txt    — pinned library versions
+✅ models/             — final_pipeline.pkl + label_encoder.pkl
+✅ .dockerignore       — excludes data/, plots/, tests/, docs/
+✅ GitHub repo         — code pushed and up to date
+✅ Docker image built  — verified locally with smoke tests
+```
+
+### 14c — Platform-Specific Config & Deploy Commands
+
+#### 🟢 Render (render.yaml — already exists)
+```bash
+# render.yaml is already created (Step 13)
+# Just connect GitHub repo at render.com → New + → Web Service
+```
+
+#### 🚁 Fly.io
+```bash
+# Install CLI
+brew install flyctl
+fly auth login
+
+# Launch (auto-generates fly.toml)
+fly launch --name <project-name> --region <region e.g. lax> --no-deploy
+
+# Edit fly.toml — set internal_port = 8000, set [env] PORT = "8000"
+
+# Deploy
+fly deploy
+
+# Verify
+fly status
+curl https://<project-name>.fly.dev/health
+```
+**fly.toml template:**
+```toml
+app = "<project-name>"
+primary_region = "lax"
+
+[build]
+
+[env]
+  PORT = "8000"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+```
+
+#### 🚂 Railway
+```bash
+# Install CLI
+npm install -g @railway/cli
+railway login
+
+# Init and deploy from project root
+railway init
+railway up
+
+# Set env vars if needed
+railway variables set PORT=8000
+
+# Get live URL
+railway open
+```
+**railway.toml template:**
+```toml
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "uvicorn app:app --host 0.0.0.0 --port $PORT"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+```
+
+#### 🟠 AWS App Runner
+```bash
+# Install & configure AWS CLI
+brew install awscli
+aws configure   # enter Access Key, Secret, region, output format
+
+# Push image to ECR
+aws ecr create-repository --repository-name <project-name>
+aws ecr get-login-password | docker login --username AWS \
+  --password-stdin <account-id>.dkr.ecr.<region>.amazonaws.com
+docker tag <image-name>:latest \
+  <account-id>.dkr.ecr.<region>.amazonaws.com/<project-name>:latest
+docker push \
+  <account-id>.dkr.ecr.<region>.amazonaws.com/<project-name>:latest
+
+# Deploy App Runner service
+aws apprunner create-service --cli-input-json file://apprunner.yaml
+```
+**apprunner.yaml template:**
+```json
+{
+  "ServiceName": "<project-name>",
+  "SourceConfiguration": {
+    "ImageRepository": {
+      "ImageIdentifier": "<account-id>.dkr.ecr.<region>.amazonaws.com/<project-name>:latest",
+      "ImageConfiguration": {
+        "Port": "8000",
+        "RuntimeEnvironmentVariables": { "PORT": "8000" }
+      },
+      "ImageRepositoryType": "ECR"
+    },
+    "AutoDeploymentsEnabled": true
+  },
+  "InstanceConfiguration": { "Cpu": "0.25 vCPU", "Memory": "0.5 GB" }
+}
+```
+
+#### 🔵 GCP Cloud Run
+```bash
+# Install & authenticate
+brew install google-cloud-sdk
+gcloud auth login
+gcloud config set project <project-id>
+
+# Enable APIs
+gcloud services enable run.googleapis.com containerregistry.googleapis.com
+
+# Build & push to GCR
+gcloud builds submit --tag gcr.io/<project-id>/<project-name>:latest
+
+# Deploy
+gcloud run deploy <project-name> \
+  --image gcr.io/<project-id>/<project-name>:latest \
+  --platform managed \
+  --region <region e.g. us-central1> \
+  --allow-unauthenticated \
+  --port 8000 \
+  --set-env-vars PORT=8000
+
+# Get live URL
+gcloud run services describe <project-name> --format "value(status.url)"
+```
+
+#### 🟦 Azure Container Apps
+```bash
+# Install Azure CLI
+brew install azure-cli
+az login
+
+# Create resource group and Container Apps environment
+az group create --name <project-name>-rg --location eastus
+az containerapp env create \
+  --name <project-name>-env \
+  --resource-group <project-name>-rg \
+  --location eastus
+
+# Build & push to Azure Container Registry
+az acr create --resource-group <project-name>-rg \
+  --name <project-name>acr --sku Basic
+az acr login --name <project-name>acr
+docker tag <image-name>:latest <project-name>acr.azurecr.io/<project-name>:latest
+docker push <project-name>acr.azurecr.io/<project-name>:latest
+
+# Deploy Container App
+az containerapp create \
+  --name <project-name> \
+  --resource-group <project-name>-rg \
+  --environment <project-name>-env \
+  --image <project-name>acr.azurecr.io/<project-name>:latest \
+  --target-port 8000 \
+  --ingress external \
+  --env-vars PORT=8000
+
+# Get live URL
+az containerapp show \
+  --name <project-name> \
+  --resource-group <project-name>-rg \
+  --query "properties.configuration.ingress.fqdn"
+```
+
+### 14d — Universal Smoke Tests
+After deploying to any platform, run these verification commands (replace `<LIVE_URL>` with the platform's live URL):
+
+```bash
+# Health check
+curl https://<LIVE_URL>/health
+
+# Single prediction — Iris-setosa
+curl -X POST https://<LIVE_URL>/predict \
+  -H "Content-Type: application/json" \
+  -d '{"sepal_length_cm":5.1,"sepal_width_cm":3.5,"petal_length_cm":1.4,"petal_width_cm":0.2}'
+
+# Single prediction — Iris-virginica
+curl -X POST https://<LIVE_URL>/predict \
+  -H "Content-Type: application/json" \
+  -d '{"sepal_length_cm":6.7,"sepal_width_cm":3.0,"petal_length_cm":5.2,"petal_width_cm":2.3}'
+
+# Batch prediction
+curl -X POST https://<LIVE_URL>/predict/batch \
+  -H "Content-Type: application/json" \
+  -d '[
+    {"sepal_length_cm":5.1,"sepal_width_cm":3.5,"petal_length_cm":1.4,"petal_width_cm":0.2},
+    {"sepal_length_cm":6.7,"sepal_width_cm":3.0,"petal_length_cm":5.2,"petal_width_cm":2.3}
+  ]'
+
+# Interactive API docs
+open https://<LIVE_URL>/docs
+```
+
+### 14e — Create `docs/cloud_deployment_guide.md`
+Delegate to the Documentation Agent to write `docs/cloud_deployment_guide.md` with:
+- Platform comparison table (Step 14a)
+- Prerequisites checklist
+- Step-by-step instructions for the chosen platform
+- Universal smoke-test commands with the live URL filled in
+- Cost / free-tier notes for the chosen platform
+- Teardown / cleanup commands to avoid unexpected charges
+
+### 14f — Push to GitHub
+```bash
+git add docs/cloud_deployment_guide.md
+# Add any platform config files created (fly.toml, railway.toml, apprunner.yaml, etc.)
+git add .
+git commit -m "Add cloud deployment config and guide for <platform>"
 git push origin main
 ```
