@@ -66,22 +66,15 @@ fi
 
 if [ "$ENTRY_MODE" = "3" ]; then
     echo ""
-    echo -e "${GREEN}▶ Claude Code mode selected.${RESET}"
+    echo -e "${GREEN}▶ Claude Code mode selected — launching now...${RESET}"
     echo ""
-    echo "  Claude will read CLAUDE.md and guide you through the full pipeline."
-    echo ""
-    echo -e "  ${BOLD}To start:${RESET}"
-    echo "    1. Ensure Claude Code CLI is installed: npm install -g @anthropic/claude-code"
-    echo "    2. Run: claude ."
-    echo ""
-    read -rp "Open Claude Code now? [Y/n]: " OPEN_CC
-    OPEN_CC="${OPEN_CC:-Y}"
-    if [[ "$OPEN_CC" =~ ^[Yy]$ ]]; then
-        if command -v claude &>/dev/null; then
-            claude .
-        else
-            echo -e "${RED}Claude Code CLI not found. Install it with: npm install -g @anthropic/claude-code${RESET}"
-        fi
+    if command -v claude &>/dev/null; then
+        claude .
+    else
+        echo -e "${RED}Claude Code CLI not found. Install it with:${RESET}"
+        echo "  npm install -g @anthropic/claude-code"
+        echo ""
+        echo "Then run: claude ."
     fi
     exit 0
 fi
@@ -246,16 +239,13 @@ echo -e "${CYAN}${BOLD}║${RESET}    claude .                                  
 echo -e "${CYAN}${BOLD}╚══════════════════════════════════════════════════╝${RESET}"
 echo ""
 
-# ── Step 10: Optionally open Claude Code ──────────────────────────
-read -rp "Open Claude Code in the new project now? [Y/n]: " OPEN_NOW
-OPEN_NOW="${OPEN_NOW:-Y}"
-if [[ "$OPEN_NOW" =~ ^[Yy]$ ]]; then
-    cd "$PROJECT_DIR"
-    source ".venv/bin/activate"
-    if command -v claude &>/dev/null; then
-        claude .
-    else
-        echo -e "${YELLOW}Claude Code CLI not found. Install: npm install -g @anthropic/claude-code${RESET}"
-        echo -e "Then run: ${BOLD}cd $PROJECT_DIR && source .venv/bin/activate && claude .${RESET}"
-    fi
+# ── Step 10: Launch Claude Code ───────────────────────────────────
+echo -e "${GREEN}▶ Launching Claude Code in your new project...${RESET}"
+cd "$PROJECT_DIR"
+source ".venv/bin/activate"
+if command -v claude &>/dev/null; then
+    claude .
+else
+    echo -e "${YELLOW}Claude Code CLI not found. Install: npm install -g @anthropic/claude-code${RESET}"
+    echo -e "Then run: ${BOLD}cd $PROJECT_DIR && source .venv/bin/activate && claude .${RESET}"
 fi
