@@ -72,41 +72,71 @@ How would you like to run this template?
   3) Claude Code   — AI-driven, fully automated (recommended)
 ```
 
+All three options do the same thing — they collect your project details, create a new project folder, set up the Python environment, and launch Claude Code automatically. The only difference is the style of prompts (shell, Python, or Claude's conversation interface).
+
 Choose **3** (or press Enter — it is the default).
 
 ---
 
-## Step 6 — Answer Claude's questions
+## Step 6 — Answer the setup prompts
 
-Claude will ask for:
+After choosing an option, you will be asked in the **terminal** (before Claude launches):
 
-| Question | Example |
+| Prompt | Example answer |
 |---|---|
-| Path to your CSV file | `/Users/yourname/Downloads/titanic.csv` |
-| Target column | `Survived` (Claude can auto-detect this) |
-| Deployment platform | Render, Fly.io, Railway, AWS, GCP, Azure, or skip |
-| GitHub username | `your-github-username` (optional) |
+| Project name | `titanic-predictor` |
+| Dataset CSV path | `/Users/yourname/Downloads/titanic.csv` |
+| Deployment platform | `2` for Render, or `1` to decide later |
+| GitHub username | `your-github-username` (press Enter to skip) |
+| GitHub repo name | `titanic-predictor` (defaults to project name) |
+| Repo visibility | `1` for Public, `2` for Private |
 
 ### When to add your CSV file
 
 **You do not need to move your CSV anywhere beforehand.** Just have it somewhere on your computer and know its full path.
 
-When Claude asks `Please provide your dataset CSV path:`, type the full path to wherever the file already is — Claude copies it into the project's `data/` folder automatically.
+Type the full path when the terminal asks — the script copies it into the project's `data/` folder automatically.
 
 | Situation | What to do |
 |---|---|
-| File is anywhere on your computer | Type its full path when Claude asks, e.g. `/Users/yourname/Downloads/mydata.csv` |
-| File is not ready yet | Press Enter to skip — drop the CSV into the project's `data/` folder later and tell Claude the filename |
+| File is anywhere on your computer | Type its full path, e.g. `/Users/yourname/Downloads/mydata.csv` |
+| File is not ready yet | Press Enter to skip — drop the CSV into `data/` later and tell Claude the filename |
 
 ---
 
-## Step 7 — Pipeline runs automatically
+## Step 7 — Project is created automatically
 
-Claude works through the full pipeline checklist:
+After you answer the prompts, the script:
+
+1. Creates a new project folder (e.g. `../titanic-predictor_20260524_143000/`)
+2. Copies all template files into it
+3. Copies your CSV into `data/`
+4. Writes `.ml_config.json` with all your choices
+5. Creates a Python virtual environment (`.venv/`)
+6. Installs all dependencies (`pip install -r requirements.txt`)
+7. Launches Claude Code automatically
+
+---
+
+## Step 8 — Claude runs the pipeline
+
+Claude reads `.ml_config.json`, shows you a confirmation summary, and waits for your approval:
+
+```
+Dataset   : data/titanic.csv
+Target    : Survived
+Task      : Classification
+Platform  : render
+GitHub    : https://github.com/yourname/titanic-predictor
+
+Proceed with the pipeline? [Y/n]
+```
+
+Press **Enter** (or Y) and Claude works through the full checklist:
 
 | Step | Task | Output |
 |---|---|---|
-| 0 | Create Python virtual environment | `.venv/` |
+| 0 | Verify Python environment | `.venv/` (already set up) |
 | 1 | Scan workspace, find CSV | — |
 | 2 | EDA — profile data, plot charts | `plots/` |
 | 3 | Preprocessing — clean & encode | `src/preprocess.py` |
@@ -124,8 +154,8 @@ Claude works through the full pipeline checklist:
 ## Folder layout after the pipeline
 
 ```
-your-project_20260524_143000/
-├── .venv/                  ← Python virtual environment
+titanic-predictor_20260524_143000/
+├── .venv/                  ← Python virtual environment (pre-installed)
 ├── .ml_config.json         ← your choices (dataset, platform, GitHub)
 ├── data/                   ← your CSV file
 ├── models/                 ← trained pipeline artifacts (.pkl)
@@ -144,8 +174,6 @@ your-project_20260524_143000/
 ---
 
 ## Alternative: get the template via Docker
-
-If you prefer not to run Python directly:
 
 ```bash
 docker build -t ml-pipeline-template -f Dockerfile.bootstrap \
@@ -176,7 +204,7 @@ python3 --version          # 1. confirm Python is installed
 curl -O <bootstrap_url>    # 2. download installer
 python3 bootstrap.py       # 3. create template + auto-install tools
 cd ml-pipeline-template    # 4. enter folder
-./start.sh                 # 5. launch — choose option 3
+./start.sh                 # 5. answer prompts → project created → Claude launches
 ```
 
 *(Replace `<bootstrap_url>` with `https://raw.githubusercontent.com/ramleo/ml-pipeline-template/main/bootstrap.py`)*
@@ -193,3 +221,4 @@ cd ml-pipeline-template    # 4. enter folder
 | Dataset not found | Copy your `.csv` into the project's `data/` folder, then tell Claude its name |
 | `ml-pipeline-template/` already exists | Run `python3 bootstrap.py my-new-name` to use a different folder name |
 | Homebrew install hangs | Accept the Xcode Command Line Tools prompt that appears |
+| pip install fails | Check Python version (`python3 --version`) — requires 3.9+ |

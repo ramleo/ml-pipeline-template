@@ -1289,6 +1289,8 @@ FILES["README.md"] = '''# 🤖 ML Pipeline Template
 > An autonomous, end-to-end machine learning template powered by Claude Code.
 > Bring your CSV — the AI builds the pipeline, API, Docker image, and deploys it.
 
+📖 **Full usage guide:** [docs/how_to_run.md](docs/how_to_run.md)
+
 ---
 
 ## What This Template Does
@@ -1325,7 +1327,6 @@ Choose any one method:
 
 ### 🔥 Bootstrap (no git, no clone required)
 ```bash
-# Download the single installer script
 curl -O https://raw.githubusercontent.com/ramleo/ml-pipeline-template/main/bootstrap.py
 python3 bootstrap.py
 cd ml-pipeline-template
@@ -1352,7 +1353,7 @@ cd ml-pipeline-template
 ./start.sh
 ```
 
-`start.sh` auto-installs any missing prerequisites (Homebrew, Node.js, Claude Code CLI), then shows a menu:
+Auto-installs any missing prerequisites, then shows a menu:
 
 ```
   1) Shell script  — guided terminal prompts
@@ -1360,9 +1361,11 @@ cd ml-pipeline-template
   3) Claude Code   — AI-driven, fully automated (recommended)
 ```
 
-Choose **3** (or press Enter — it is the default). Claude reads `CLAUDE.md` and runs the full pipeline automatically.
+All three options work the same way: answer a few terminal prompts (project name, CSV path, platform, GitHub), then the script creates a new project folder, sets up the Python environment with all dependencies installed, and launches Claude Code automatically.
 
-> Creates a **new project folder** (sibling to this template), sets up a Python venv, copies template files, and launches the pipeline.
+Choose **3** (or press Enter — it is the default).
+
+> 📖 Full details: [docs/how_to_run.md](docs/how_to_run.md)
 
 ---
 
@@ -1370,18 +1373,20 @@ Choose **3** (or press Enter — it is the default). Claude reads `CLAUDE.md` an
 
 ```
 my-project_20260524_143000/
-├── .venv/                  ← isolated Python environment
-├── .ml_config.json         ← your choices (dataset, platform, etc.)
-├── data/                   ← your CSV goes here
-├── models/                 ← trained pipeline artifacts (.pkl)
-├── plots/                  ← EDA charts (.png)
-├── src/preprocess.py       ← generated preprocessing script
-├── tests/test_pipeline.py  ← generated test suite
-├── docs/                   ← summary, guides, test results
-├── app.py                  ← FastAPI app
-├── Dockerfile              ← multi-stage build
-├── requirements.txt        ← pinned dependencies
-└── render.yaml / fly.toml  ← deployment config
+├── .venv/                      ← isolated Python environment
+├── .ml_config.json             ← your choices (dataset, platform, etc.)
+├── .gitignore                  ← Python / macOS / IDE / secrets
+├── data/                       ← your CSV goes here
+├── models/                     ← trained pipeline artifacts (.pkl)
+├── plots/                      ← EDA charts (.png)
+├── src/preprocess.py           ← generated preprocessing script
+├── tests/test_pipeline.py      ← generated test suite
+├── docs/                       ← summary, guides, test results
+├── app.py                      ← FastAPI app
+├── Dockerfile                  ← multi-stage build
+├── requirements.txt            ← pinned dependencies
+└── render.yaml / fly.toml /    ← deployment config (platform-specific)
+    railway.toml / apprunner.yaml
 ```
 
 ---
@@ -1419,13 +1424,17 @@ Task type is **auto-detected** from your target column — no config needed.
 | `tests/CLAUDE.md` | Testing agent spec |
 | `docs/CLAUDE.md` | Documentation agent spec |
 | `deploy/CLAUDE.md` | Docker, Git, cloud deploy agent specs |
-| `deploy/cloud-render.md` | Render deployment steps |
-| `deploy/cloud-platforms.md` | AWS / GCP / Azure / Fly.io / Railway steps |
+| `deploy/cloud.md` | Cloud deployment index (`@`-imports render + platforms) |
+| `deploy/cloud-render.md` | Render deployment steps (Step 13) |
+| `deploy/cloud-platforms.md` | AWS / GCP / Azure / Fly.io / Railway steps (Step 14) |
 | `start.sh` | Bash entry point |
 | `init.py` | Python CLI entry point |
 | `bootstrap.py` | Single-file installer (no git required) |
 | `Dockerfile.bootstrap` | Docker image for distributing the template |
 | `.ml_config.json.example` | Reference config template |
+| `.gitignore` | Standard Python / macOS / IDE ignore rules |
+| `docs/claude_structure.md` | CLAUDE.md split structure reference |
+| `docs/how_to_run.md` | Step-by-step usage guide |
 
 ---
 

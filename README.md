@@ -67,7 +67,7 @@ cd ml-pipeline-template
 ./start.sh
 ```
 
-`start.sh` auto-installs any missing prerequisites (Homebrew, Node.js, Claude Code CLI), then shows a menu:
+Auto-installs any missing prerequisites, then shows a menu:
 
 ```
   1) Shell script  — guided terminal prompts
@@ -75,9 +75,11 @@ cd ml-pipeline-template
   3) Claude Code   — AI-driven, fully automated (recommended)
 ```
 
-Choose **3** (or press Enter — it is the default). Claude reads `CLAUDE.md` and runs the full pipeline automatically.
+All three options work the same way: answer a few terminal prompts (project name, CSV path, platform, GitHub), then the script creates a new project folder, sets up the Python environment with all dependencies installed, and launches Claude Code automatically.
 
-> Creates a **new project folder** (sibling to this template), sets up a Python venv, copies template files, and launches the pipeline.
+Choose **3** (or press Enter — it is the default).
+
+> 📖 Full details: [docs/how_to_run.md](docs/how_to_run.md)
 
 ---
 
