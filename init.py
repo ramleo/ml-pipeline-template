@@ -164,7 +164,6 @@ def create_project(cfg: dict) -> tuple:
     timestamp    = datetime.now().strftime("%Y%m%d_%H%M%S")
     project_dir  = template_dir.parent / f"{cfg['project_name']}_{timestamp}"
     staging_dir  = _make_staging_dir(project_dir)
-    print(f"\n{G}▶ Creating project at: {project_dir}{X}")
     return project_dir, staging_dir
 
 def create_venv(staging_dir: Path):
@@ -185,10 +184,11 @@ def install_deps(staging_dir: Path):
 
 def move_to_final(staging_dir: Path, project_dir: Path):
     """
-    Atomic move: staging → project_dir.
+    Atomic move: staging → project_dir (same filesystem → os.rename, not copy).
     VS Code sees the project appear ONCE — fully populated, .venv already inside.
-    Then fix .venv script shebangs (path changed from /tmp/... to project_dir).
+    Then fix .venv script shebangs (path changed from staging dir to project_dir).
     """
+    print(f"\n{G}▶ Creating project at: {project_dir}{X}")
     shutil.move(str(staging_dir), str(project_dir))
     # Fix shebang paths in .venv/bin/pip etc. after the directory was renamed
     venv = project_dir / ".venv"
@@ -205,7 +205,11 @@ def move_to_final(staging_dir: Path, project_dir: Path):
 
 EXCLUDE = {
     ".git", "__pycache__", ".venv", ".DS_Store",
-    ".ml_config.json", "start.sh", "init.py",
+    ".ml_config.json",
+    # Setup scripts: stay in the template folder, never copied into projects.
+    # Running bootstrap.py inside a project creates a nested ml-pipeline-template/;
+    # running start.sh/init.py creates sibling projects — both are duplication bugs.
+    "bootstrap.py", "Dockerfile.bootstrap", "start.sh", "init.py",
 }
 EXCLUDE_EXTS = {".csv", ".pkl", ".npy", ".png", ".pyc"}
 
@@ -296,7 +300,7 @@ if __name__ == "__main__":
     cfg                      = collect_inputs()
     project_dir, staging_dir = create_project(cfg)
 
-    # All heavy work happens in /tmp (invisible to VS Code)
+    # All heavy work happens in hidden staging dir (same parent as project, invisible to VS Code)
     copy_template(Path(__file__).parent.resolve(), staging_dir)  # 1. template files
     copy_dataset(cfg, staging_dir)                                # 2. dataset
     write_config(cfg, staging_dir)                                # 3. config

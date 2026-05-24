@@ -194,6 +194,10 @@ rsync -a \
     --exclude='__pycache__/' \
     --exclude='.DS_Store' \
     --exclude='.ml_config.json' \
+    --exclude='bootstrap.py' \
+    --exclude='Dockerfile.bootstrap' \
+    --exclude='start.sh' \
+    --exclude='init.py' \
     "$TEMPLATE_DIR/" "$STAGING_DIR/"
 echo -e "  ${GREEN}✔ Template files ready${RESET}"
 

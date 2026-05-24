@@ -24,8 +24,7 @@ X = "\033[0m"      # reset
 
 # ── Required template files (relative to TEMPLATE_DIR) ────────────────
 REQUIRED_TEMPLATE_FILES = [
-    "CLAUDE.md",
-    "claude.md",
+    "CLAUDE.md",           # uppercase — bootstrap writes CLAUDE.md; macOS is case-insensitive
     "start.sh",
     "init.py",
     "bootstrap.py",
@@ -46,12 +45,12 @@ REQUIRED_TEMPLATE_DIRS = ["src", "deploy", "docs", "tests", "data", "models", "p
 # Required dirs in a created project
 REQUIRED_PROJECT_DIRS = ["data", "models", "plots", "src", "deploy", "docs", "tests", ".venv"]
 
-# Required files in a created project (relative to project root)
+# Required files in a created project (relative to project root).
+# Setup scripts (bootstrap.py, Dockerfile.bootstrap, start.sh, init.py) are
+# intentionally excluded from projects — running them inside a project creates
+# nested templates or duplicate sibling projects (the root cause of duplication).
 REQUIRED_PROJECT_FILES = [
     "CLAUDE.md",
-    "claude.md",
-    "start.sh",
-    "init.py",
     "requirements.txt",
     "README.md",
     ".ml_config.json",
@@ -191,16 +190,37 @@ def make_fake_claude_bin(tmp_dir: Path) -> Path:
 def find_created_project(parent_dir: Path, project_name: str, after_time: float) -> Optional[Path]:
     """
     Find a project directory created after 'after_time' whose name starts with project_name.
+
+    NOTE: We parse the embedded timestamp from the directory name
+    (format PROJECT_NAME_YYYYMMDD_HHMMSS) instead of relying on st_birthtime.
+    On macOS APFS, shutil.copytree preserves the SOURCE directory's birthtime,
+    so the copied template tree inherits old birthtimes — making st_birthtime
+    unreliable as a "was this just created?" signal.
     """
+    from datetime import datetime
     for candidate in parent_dir.iterdir():
         if not candidate.is_dir():
             continue
         if not candidate.name.startswith(project_name):
             continue
+        # Primary: parse YYYYMMDD_HHMMSS suffix from the directory name
+        suffix = candidate.name[len(project_name):]   # e.g. "_20260525_004534"
+        if suffix.startswith("_"):
+            suffix = suffix[1:]  # "20260525_004534"
+        try:
+            # strptime without tzinfo → local time; .timestamp() converts to epoch correctly
+            ts = datetime.strptime(suffix, "%Y%m%d_%H%M%S").timestamp()
+            # Accept if the embedded timestamp is within the test window (≥ after_time - 60s)
+            if ts >= after_time - 60:
+                return candidate
+            continue
+        except ValueError:
+            pass
+        # Fallback: filesystem times (less reliable on APFS CoW clones)
         try:
             btime = candidate.stat().st_birthtime
         except AttributeError:
             btime = candidate.stat().st_mtime
-        if btime >= after_time - 2.0:   # 2s slack for slow systems
+        if btime >= after_time - 2.0:
             return candidate
     return None
