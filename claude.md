@@ -67,11 +67,23 @@ Delegate to a sub-agent whenever a task is **token-heavy, self-contained, or pro
 
 1. **Check for `.ml_config.json`** in the project root:
    - If found: read `dataset_path`, `target_column`, `deployment_platform`, `github_username`, `github_repo`, `github_visibility` from it.
-   - If not found: ask — "Please provide your dataset CSV path:", "Which column is the target variable?", "Your GitHub username:", and "GitHub repo name (default: project name):".
+   - If not found: ask the user for the following, **ONE question at a time**:
+     1. "What is your dataset CSV path?" — accept a full file path OR a filename if the file is already in `data/`. If the user presses Enter without providing a path, check the `data/` folder for any `.csv` file and use it if found; otherwise ask again.
+     2. "Which column is the target variable? (or press Enter to auto-detect)"
+     3. "What is your GitHub username? (press Enter to skip)"
+     4. "What should the GitHub repo be named? (default: `<project_name>`)"
+     5. "Deployment platform? [render / fly.io / railway / aws / gcp / azure / none]"
+     Then write all answers to `.ml_config.json` before proceeding.
 
 2. **Check for `.venv/`** virtual environment:
-   - If missing: run `python3 -m venv .venv` → `source .venv/bin/activate` → `pip install -r requirements.txt`. Mark Step 0 complete.
-   - If exists: run `source .venv/bin/activate`.
+   - If `.venv/` is missing:
+     1. Run: `python3 -m venv .venv`
+     2. Run: `.venv/bin/pip install --upgrade pip -q`
+     3. Run: `.venv/bin/pip install -r requirements.txt -q`
+     4. For all subsequent Python commands, use `.venv/bin/python` (not `python3`).
+     Mark Step 0 complete.
+   - If `.venv/` exists:
+     - Use `.venv/bin/python` and `.venv/bin/pip` for all commands.
 
 3. **Auto-detect task type** from the target column:
    - If target has ≤ 20 unique values or dtype is object/bool → **Classification**
@@ -79,6 +91,16 @@ Delegate to a sub-agent whenever a task is **token-heavy, self-contained, or pro
 
 4. **Scan the workspace** for the CSV file; read its first 5 rows and column names.
 
-5. **Confirm with user**: "Dataset: X rows × Y cols | Target: COLUMN | Task: TYPE — proceed? [Y/n]"
+5. **Show confirmation summary** and wait for the user to confirm before proceeding:
+   ```
+   Dataset   : <dataset_path>
+   Target    : <target_column>
+   Task      : <auto-detected type: Classification or Regression>
+   Platform  : <deployment_platform>
+   GitHub    : https://github.com/<github_username>/<github_repo>
+
+   Proceed with the pipeline? [Y/n]
+   ```
+   Only continue after the user confirms with Y (or Enter).
 
 6. Once confirmed, immediately launch the EDA Agent (Step 2).
