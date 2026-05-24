@@ -1,0 +1,15 @@
+# ML Pipeline — Iris Species Classification
+# Generated: 2026-05-24
+# Python 3.x | random_state=42
+
+# Core data manipulation
+pandas==2.2.2
+numpy==1.26.4
+
+# Machine learning
+scikit-learn==1.8.0
+joblib==1.5.3
+
+# Visualisation
+matplotlib==3.10.9
+seaborn==0.13.2
