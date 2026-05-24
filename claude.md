@@ -7,9 +7,76 @@ You are an expert Data Scientist and Autonomous AI Agent. Your task is to dynami
 3. **Main Session Conservation**: Keep this main session clean. Do not allow large blocks of raw data, training logs, or unoptimized trial-and-error code to pollute the main context history.
 
 # Sub-Agent Routing Guide
-- **Launch EDA Agent**: Delegate this agent to profile data columns, check distributions, detect missing values, and save plots to a `plots/` folder. Only return a high-level text summary of insights.
-- **Launch Data Engineering Agent**: Delegate this agent to dynamically handle preprocessing (impute missing data, encode categoricals based on data types) and write the script (`preprocess.py`).
-- **Launch Optimization Agent**: Delegate this agent to auto-select baseline algorithms (Classification vs. Regression) and run hyperparameter search loops, returning only the optimal parameters.
+
+## When to Use a Sub-Agent
+Delegate to a sub-agent whenever a task is **token-heavy, self-contained, or produces large intermediate output** (raw data, training logs, generated code). Keep the main session lean — it should only receive clean summaries and final artifacts.
+
+**Rule of thumb:** If a task requires more than ~20 lines of output or involves trial-and-error iteration, it belongs in a sub-agent.
+
+## Sub-Agent Roster
+
+### 🔬 EDA Agent
+**Trigger:** Step 2 — Data Inspection & EDA
+**Delegate when:** Profiling columns, plotting distributions, computing correlations, detecting outliers.
+**Input to provide:** CSV file path, target variable name, task type.
+**Agent must:** Save all plots to `plots/`; return ONLY a bullet-point text summary (no raw data, no code).
+**Returns:** Dataset shape, quality issues, class balance, top feature insights, outlier summary, correlation highlights.
+
+### ⚙️ Data Engineering Agent
+**Trigger:** Step 3 — Automated Preprocessing & Cleaning
+**Delegate when:** Building preprocessing pipelines, encoding categoricals, imputing missing values, writing `src/preprocess.py`.
+**Input to provide:** CSV path, target column, EDA summary (key data types, missing value counts, outlier findings).
+**Agent must:** Write the complete `src/preprocess.py` script and execute it; return ONLY confirmation + printed output (split shapes, class distribution). Do not return the full script.
+**Returns:** Confirmation that script ran, split shapes, class distribution, paths of saved artifacts.
+
+### 🏆 Optimization Agent
+**Trigger:** Steps 4–6 — Feature Scaling, Model Training & Evaluation
+**Delegate when:** Running GridSearchCV, fitting multiple candidate models, evaluating on test set.
+**Input to provide:** Paths to saved `.npy` splits, label encoder path, candidate algorithms and hyperparameter grids, task type.
+**Agent must:** Run full hyperparameter search, select best model, build final pipeline, save to `models/final_pipeline.pkl`, evaluate on test set; return ONLY the results table and metrics.
+**Returns:** Best model name, optimal hyperparameters, CV accuracy, test accuracy, classification report, confusion matrix, confirmation that `final_pipeline.pkl` was saved.
+
+### 🌐 FastAPI Agent
+**Trigger:** API development task
+**Delegate when:** Writing or expanding the FastAPI `app.py` (new endpoints, input validation, response schemas, batch prediction).
+**Input to provide:** Model path, label encoder path, list of endpoints to create with expected request/response shapes.
+**Agent must:** Write the complete `app.py`, start the server, smoke-test all endpoints via curl, return ONLY confirmation + curl responses. Do not return the full script.
+**Returns:** Confirmation all endpoints respond correctly, sample curl outputs, any errors encountered.
+
+### 🐳 Docker Agent
+**Trigger:** Step 12 — Dockerfile & Containerisation
+**Delegate when:** Writing the Dockerfile, building the image, running the container, smoke-testing endpoints inside Docker.
+**Input to provide:** Project root path, `requirements.txt` path, `app.py` location, `models/` path, desired base image.
+**Agent must:** Write `Dockerfile` and `.dockerignore`, build the image, run the container, hit `/health` and `/predict`, stop and remove container; return ONLY confirmation + test outputs.
+**Returns:** Build success confirmation, image size, smoke-test results, any warnings or errors.
+
+### 📄 Documentation Agent
+**Trigger:** Steps 8, 12d, 13d — Markdown documentation files
+**Delegate when:** Writing `docs/summary.md`, `docs/testing_guide.md`, `docs/test_results.md`, `docs/deployment_guide.md`, `docs/docker_guide.md`.
+**Input to provide:** The specific content to document (model results, test output, deployment steps, Docker commands).
+**Agent must:** Write the complete `.md` file with proper sections, tables, and code blocks; return ONLY confirmation that the file was created and a one-line description of each section.
+**Returns:** File path created, section headings list, confirmation.
+
+### 🧪 Testing Agent
+**Trigger:** After pipeline or API is built
+**Delegate when:** Writing `tests/test_pipeline.py`, running the full test suite, reporting results.
+**Input to provide:** Pipeline path, label encoder path, data path, expected accuracy threshold.
+**Agent must:** Write the test script (artifact integrity, single-sample predictions, full test-set evaluation, per-class accuracy, consistency check, probability check); run it; return ONLY the test summary output.
+**Returns:** Pass/fail per test, overall accuracy, confirmation of 16/16 checks or list of failures.
+
+### 🚀 Git & Deploy Agent
+**Trigger:** Steps 11–13 — Git, GitHub, Render deployment
+**Delegate when:** Running multi-step git workflows (init → commit → push) or setting up deployment configs.
+**Input to provide:** Project root path, GitHub username, repo name, visibility (public/private), Render service name.
+**Agent must:** Execute all git commands, create the GitHub repo, push the code, verify the remote is set; return ONLY the GitHub repo URL and confirmation.
+**Returns:** GitHub repo URL, commit hash, push confirmation, any errors.
+
+## Token Conservation Rules
+1. **Never** paste raw CSV data, full training logs, or large DataFrames into the main session.
+2. **Never** return a full generated script to the main session — return confirmation + printed output only.
+3. Sub-agents must be given **all necessary context upfront** (file paths, parameters, prior results) so they do not need to ask back-and-forth.
+4. Each sub-agent handles **one phase** only — do not chain multiple phases into a single sub-agent call.
+5. If a sub-agent fails, fix the specific issue and re-run that agent only — do not re-run the entire pipeline.
 
 # Operational Rules
 1. **Immediate Execution**: Do not greet or explain. Start work immediately upon reading this file.
@@ -23,15 +90,19 @@ You are an expert Data Scientist and Autonomous AI Agent. Your task is to dynami
 - **Tech Stack**: Python, Pandas, Scikit-Learn, Joblib
 
 # ML Process Checklist
-- [x] 1. Workspace Scan & Dataset Auto-Discovery
-- [x] 2. Data Inspection & EDA (Via EDA Agent: Detect task type, save plots, report summary)
-- [x] 3. Automated Preprocessing & Cleaning (Via Data Engineering Agent: Build robust pipelines)
-- [x] 4. Feature Scaling & Train-Test Split (80/20 stratified split for classification, random for regression)
-- [x] 5. Baseline Model Training & Tuning (Via Optimization Agent: Fit and tune appropriate model)
-- [x] 6. Model Evaluation (Generate metrics: Classification Report or RMSE/R2 based on task type)
-- [x] 7. Pipeline Export (Save the entire trained preprocessing + model pipeline as `models/final_pipeline.pkl`)
-- [x] 8. Summary Report (Create `summary.md` with full pipeline summary: dataset overview, EDA insights, preprocessing steps, model results, artifacts index, and a reproducibility code snippet)
-- [x] 9. Requirements File (Create `requirements.txt` by detecting installed library versions via Python; include: pandas, numpy, scikit-learn, joblib, matplotlib, seaborn)
+- [x] 1.  Workspace Scan & Dataset Auto-Discovery
+- [x] 2.  Data Inspection & EDA (Via EDA Agent: Detect task type, save plots, report summary)
+- [x] 3.  Automated Preprocessing & Cleaning (Via Data Engineering Agent: Build robust pipelines)
+- [x] 4.  Feature Scaling & Train-Test Split (80/20 stratified split for classification, random for regression)
+- [x] 5.  Baseline Model Training & Tuning (Via Optimization Agent: Fit and tune appropriate model)
+- [x] 6.  Model Evaluation (Generate metrics: Classification Report or RMSE/R2 based on task type)
+- [x] 7.  Pipeline Export (Save the entire trained preprocessing + model pipeline as `models/final_pipeline.pkl`)
+- [x] 8.  Summary Report (Create `summary.md`)
+- [x] 9.  Requirements File (Create `requirements.txt` with pinned library versions)
+- [x] 10. Workspace Reorganisation (Create subfolders; move files to reduce clutter)
+- [x] 11. Git Initialisation & GitHub Push (git init → .gitignore → commit → gh repo create → push)
+- [x] 12. Dockerfile & Containerisation (Multi-stage Dockerfile + .dockerignore; build & test locally; push to GitHub)
+- [x] 13. Render Deployment (Deploy FastAPI app from GitHub repo via render.yaml; document live endpoints)
 
 # Instructions for Initialization
 Read this file, scan the workspace directory to locate the target CSV file, and read its first 5 rows. Identify the potential target variables, print them out for the user, and ask: "Which column is the target variable?". Once the user answers, immediately launch the EDA Agent to execute Step 2.
@@ -56,3 +127,194 @@ Detect the exact installed versions of all libraries used in the pipeline by run
 import pandas, numpy, sklearn, joblib, matplotlib, seaborn
 ```
 Then create `requirements.txt` in the workspace root listing each library with its pinned version. Include a header comment with the project name, generation date, and Python version. Libraries to include: `pandas`, `numpy`, `scikit-learn`, `joblib`, `matplotlib`, `seaborn`.
+
+---
+
+# Workspace Organisation Instructions
+
+## Step 10 — Create Subfolders & Reorganise Files
+After completing the ML pipeline (Steps 1–9), reorganise the workspace into the following folder structure to reduce clutter. Perform all moves, then update any file paths referenced inside scripts (`app.py`, `preprocess.py`, `Dockerfile`, `render.yaml`).
+
+**Target folder structure:**
+```
+project-root/
+├── data/               ← CSV datasets
+├── models/             ← trained .pkl artifacts & .npy splits
+├── plots/              ← EDA charts (.png)
+├── src/                ← preprocessing & utility scripts
+│   └── preprocess.py
+├── tests/              ← test scripts
+│   └── test_pipeline.py
+├── docs/               ← all markdown documentation
+│   ├── summary.md
+│   ├── testing_guide.md
+│   ├── test_results.md
+│   ├── deployment_guide.md
+│   └── docker_guide.md
+├── app.py              ← stays at root (Render: uvicorn app:app requires this)
+├── Dockerfile          ← stays at root (Docker & Render requirement)
+├── .dockerignore       ← stays at root
+├── render.yaml         ← stays at root
+├── requirements.txt    ← stays at root
+├── .gitignore          ← stays at root
+└── CLAUDE.md           ← stays at root
+```
+
+**Steps to execute:**
+1. Create `src/`, `tests/`, `docs/` directories
+2. Move `preprocess.py` → `src/` (`app.py` stays at root — Render needs `uvicorn app:app`)
+3. Move `test_pipeline.py` → `tests/`
+4. Move all `*.md` files (except `CLAUDE.md`) → `docs/`
+5. Remove any `__pycache__/` directories from root
+6. Commit the reorganisation: `git add -A && git commit -m "Reorganise workspace into src/, tests/, docs/ subfolders"`
+
+---
+
+# Git & GitHub Instructions
+
+## Step 11 — Initialise Git & Push to GitHub
+Perform this step after the workspace is organised (Step 10).
+
+### 11a — Check & Install GitHub CLI
+```bash
+gh --version        # check if installed
+brew install gh     # install if missing (macOS)
+gh auth status      # check login
+gh auth login       # login if not authenticated (opens browser OAuth)
+```
+
+### 11b — Create `.gitignore`
+Create `.gitignore` at the project root. Include:
+- Python: `__pycache__/`, `*.pyc`, `.venv/`, `venv/`
+- macOS: `.DS_Store`
+- IDE: `.vscode/`, `.idea/`
+- Secrets: `.env`, `*.env.*`
+- Logs: `*.log`
+
+### 11c — Initialise Git & First Commit
+```bash
+git init
+git add .
+git commit -m "Initial commit: end-to-end ML pipeline with FastAPI"
+```
+
+### 11d — Create Public GitHub Repo & Push
+```bash
+gh repo create <project-name> \
+  --public \
+  --description "<brief description>" \
+  --source=. \
+  --remote=origin \
+  --push
+```
+Confirm the repo is live at `https://github.com/<username>/<project-name>`.
+
+---
+
+# Dockerfile & Containerisation Instructions
+
+## Step 12 — Create Dockerfile & Push to GitHub
+Perform this step after the GitHub repo exists (Step 11).
+
+### 12a — Create `Dockerfile`
+Use a **multi-stage build** with `python:3.11-slim` as the base image:
+- **Stage 1 (builder):** Copy `requirements.txt`, run `pip install --prefix=/install`
+- **Stage 2 (runtime):** Copy installed packages from builder; copy `app.py` and `models/`; create a non-root `appuser`; expose port `8000`; set CMD with JSON array form
+
+### 12b — Create `.dockerignore`
+Exclude from the Docker build context:
+- `.git/`, `__pycache__/`, `.venv/`
+- `data/`, `plots/` (not needed at runtime)
+- `tests/`, `docs/`, `*.md`
+- `.env`, `.DS_Store`, `.claude/`
+
+### 12c — Build & Test Locally
+```bash
+# Build
+docker build -t <image-name>:latest .
+
+# Run
+docker run -d -p 8000:8000 --name <container-name> <image-name>:latest
+
+# Smoke test
+curl http://localhost:8000/health
+curl -X POST http://localhost:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{"sepal_length_cm":5.1,"sepal_width_cm":3.5,"petal_length_cm":1.4,"petal_width_cm":0.2}'
+
+# Stop & remove
+docker stop <container-name> && docker rm <container-name>
+```
+
+### 12d — Create `docker_guide.md`
+Document the following in `docs/docker_guide.md`:
+- Build command
+- Run command
+- All test-it-live curl examples (health, single predict ×3 species, batch predict, Swagger UI)
+- Post-deploy test commands (replace localhost with Render URL)
+- Useful Docker commands reference table
+- Image details table
+
+### 12e — Push to GitHub
+```bash
+git add Dockerfile .dockerignore docs/docker_guide.md
+git commit -m "Add Dockerfile, .dockerignore, and Docker guide"
+git push origin main
+```
+
+---
+
+# Render Deployment Instructions
+
+## Step 13 — Deploy on Render
+Perform this step after the Dockerfile is pushed to GitHub (Step 12).
+
+### 13a — Create `render.yaml`
+Create `render.yaml` at the project root:
+```yaml
+services:
+  - type: web
+    name: <project-name>
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.0"
+```
+
+### 13b — Deploy Steps
+1. Go to [render.com](https://render.com) → sign up / log in with GitHub
+2. Click **New +** → **Web Service**
+3. Connect GitHub repo: `<username>/<project-name>`
+4. Render auto-detects `render.yaml` — confirm settings:
+   - **Build Command:** `pip install -r requirements.txt`
+   - **Start Command:** `uvicorn app:app --host 0.0.0.0 --port $PORT`
+   - **Instance Type:** Free
+5. Click **Create Web Service** — Render builds and deploys automatically
+6. Live URL: `https://<project-name>.onrender.com`
+
+### 13c — Verify Deployment
+```bash
+curl https://<project-name>.onrender.com/health
+curl -X POST https://<project-name>.onrender.com/predict \
+  -H "Content-Type: application/json" \
+  -d '{"sepal_length_cm":5.1,"sepal_width_cm":3.5,"petal_length_cm":1.4,"petal_width_cm":0.2}'
+```
+
+### 13d — Create `deployment_guide.md`
+Document the following in `docs/deployment_guide.md`:
+- Prerequisites (files needed before deploying)
+- 5-step Render deploy walkthrough with exact settings
+- All API endpoint descriptions
+- Test-it-live curl commands (health, predict, batch)
+- Run locally instructions
+- Input field reference table
+- Free tier cold-start note
+
+### 13e — Push deployment guide to GitHub
+```bash
+git add render.yaml docs/deployment_guide.md
+git commit -m "Add render.yaml and deployment guide"
+git push origin main
+```
