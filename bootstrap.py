@@ -1315,13 +1315,16 @@ FILES["README.md"] = '''# 🤖 ML Pipeline Template
 
 ## Prerequisites
 
-| Tool | Install |
+Only **Python 3.9+** must be installed manually — everything else is handled automatically.
+
+| Tool | How |
 |---|---|
-| Python 3.9+ | [python.org](https://python.org) |
-| Git | `brew install git` |
-| GitHub CLI | `brew install gh` |
-| Docker Desktop | [docker.com](https://www.docker.com/products/docker-desktop) |
-| Claude Code CLI | `npm install -g @anthropic/claude-code` |
+| Python 3.9+ | Manual — [python.org](https://python.org) |
+| Homebrew | **Auto-installed** by `./start.sh` or `bootstrap.py` |
+| Node.js | **Auto-installed** by `./start.sh` or `bootstrap.py` |
+| Claude Code CLI | **Auto-installed** by `./start.sh` or `bootstrap.py` |
+| GitHub CLI *(optional)* | `brew install gh` then `gh auth login` |
+| Docker *(optional)* | [docker.com](https://docker.com) |
 
 ---
 

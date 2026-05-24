@@ -2,14 +2,18 @@
 
 ---
 
-## Prerequisites (one-time setup)
+## Prerequisites
 
-| Tool | Check | Install |
-|---|---|---|
-| Python 3.9+ | `python3 --version` | [python.org](https://python.org) |
-| Claude Code CLI | `claude --version` | `npm install -g @anthropic/claude-code` |
-| GitHub CLI *(optional)* | `gh --version` | `brew install gh` |
-| Docker *(optional)* | `docker --version` | [docker.com](https://docker.com) |
+Only **Python 3.9+** must be installed manually — `start.sh` and `bootstrap.py` auto-install everything else.
+
+| Tool | How |
+|---|---|
+| Python 3.9+ | Manual — [python.org](https://python.org) |
+| Homebrew | **Auto-installed** by `./start.sh` / `bootstrap.py` |
+| Node.js | **Auto-installed** by `./start.sh` / `bootstrap.py` |
+| Claude Code CLI | **Auto-installed** by `./start.sh` / `bootstrap.py` |
+| GitHub CLI *(optional)* | `brew install gh` then `gh auth login` |
+| Docker *(optional)* | [docker.com](https://docker.com) |
 
 ---
 
@@ -159,7 +163,7 @@ claude .
 | Problem | Fix |
 |---|---|
 | `python3: command not found` | Install Python 3.9+ from [python.org](https://python.org) |
-| `claude: command not found` | Run `npm install -g @anthropic/claude-code` |
+| `claude: command not found` | Run `./start.sh` — it auto-installs Claude Code CLI, or manually: `npm install -g @anthropic/claude-code` |
 | `gh: command not found` | Run `brew install gh` then `gh auth login` |
 | `Permission denied: ./start.sh` | Run `chmod +x start.sh` first |
 | Dataset not found | Copy your `.csv` into the project's `data/` folder manually, then tell Claude its name |
