@@ -7,7 +7,7 @@ What we test:
   4c. .venv/ exists in the created project
   4d. .ml_config.json exists with all required keys
   4e. All template files copied into project
-  4f. .venv was created BEFORE other project folders (timestamp check)
+  4f. Staging approach used: rsync → venv → pip → atomic mv (output check)
   4g. Dataset CSV is copied when path is provided
   4h. requirements.txt present in created project
 
@@ -193,48 +193,47 @@ def _test_template_files_copied() -> TestResult:
     return passresult("start.sh: template files copied", f"{len(REQUIRED_PROJECT_FILES)} files present")
 
 
-def _test_venv_created_before_folders() -> TestResult:
+def _test_staging_approach_used() -> TestResult:
     """
-    Critical fix: .venv should have been created (birthtime) BEFORE
-    data/, src/, deploy/ etc. were copied by rsync.
+    Staging approach: rsync → venv → pip (all in /tmp), then one atomic mv.
+    Verify the console output shows this order — confirming VS Code sees the
+    project folder appear ONCE, complete, not incrementally.
     """
     _ensure_project_created()
     if _shared_project is None:
-        return failresult("start.sh: .venv created before template folders", _setup_error or "Project not created")
+        return failresult("start.sh: staging approach (atomic project creation)", _setup_error or "Project not created")
 
-    venv = _shared_project / ".venv"
-    if not venv.exists():
-        return failresult("start.sh: .venv created before template folders", ".venv not found")
+    stdout = _shared_result.stdout if _shared_result else ""
 
-    try:
-        venv_btime = venv.stat().st_birthtime
-    except AttributeError:
-        return skip("start.sh: .venv created before template folders",
-                    "st_birthtime not available on this OS (Linux); use macOS for this check")
-
-    later_dirs = ["data", "src", "deploy", "docs", "tests"]
-    order_violations = []
-    for d in later_dirs:
-        dirpath = _shared_project / d
-        if not dirpath.exists():
-            continue
-        try:
-            d_btime = dirpath.stat().st_birthtime
-        except AttributeError:
-            continue
-        if venv_btime > d_btime + 0.5:   # allow 0.5s slack
-            order_violations.append(
-                f"{d}/ birthtime={d_btime:.3f} is earlier than .venv birthtime={venv_btime:.3f}"
-            )
-
-    if order_violations:
+    # Check all staging-phase messages appear in output
+    staging_msgs = [
+        "Preparing project files",   # rsync to staging
+        "Creating Python virtual",   # venv in staging
+        "Installing dependencies",   # pip in staging
+        "Creating project at:",      # atomic mv → VS Code sees project once
+    ]
+    missing_msgs = [s for s in staging_msgs if s not in stdout]
+    if missing_msgs:
         return failresult(
-            "start.sh: .venv created before template folders",
-            f".venv was created AFTER some folders — venv-first fix is broken",
-            details="\n".join(order_violations),
+            "start.sh: staging approach (atomic project creation)",
+            f"Missing expected output messages: {missing_msgs}",
+            details=f"stdout (last 600):\n{stdout[-600:]}",
         )
-    return passresult("start.sh: .venv created before template folders",
-                      f".venv birthtime <= all {len(later_dirs)} template folders")
+
+    # Verify the messages appear in the correct order
+    prep_pos = stdout.find("Preparing project files")
+    venv_pos = stdout.find("Creating Python virtual")
+    pip_pos  = stdout.find("Installing dependencies")
+    mv_pos   = stdout.find("Creating project at:")
+
+    if not (prep_pos < venv_pos < pip_pos < mv_pos):
+        return failresult(
+            "start.sh: staging approach (atomic project creation)",
+            f"Staging steps out of order (prep={prep_pos}, venv={venv_pos}, pip={pip_pos}, mv={mv_pos})"
+        )
+
+    return passresult("start.sh: staging approach (atomic project creation)",
+                      "rsync → venv → pip → atomic mv order confirmed in output")
 
 
 def _test_csv_copied_when_provided() -> TestResult:
@@ -274,7 +273,7 @@ def run_suite(fast: bool = False) -> List[TestResult]:
         ("start.sh: .venv/ exists",                  _test_venv_exists),
         ("start.sh: .ml_config.json valid",          _test_ml_config_exists_and_valid),
         ("start.sh: template files copied",          _test_template_files_copied),
-        ("start.sh: .venv before template folders",  _test_venv_created_before_folders),
+        ("start.sh: staging approach used",           _test_staging_approach_used),
         ("start.sh: CSV copied when provided",       _test_csv_copied_when_provided),
     ]
     return [run_test(name, func) for name, func in tests]

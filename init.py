@@ -140,29 +140,60 @@ def collect_inputs() -> dict:
         "github_visibility": gh_vis,
     }
 
-def create_project(cfg: dict) -> Path:
+def _make_staging_dir(project_name: str, timestamp: str) -> Path:
+    """Return a /tmp staging path. Invisible to VS Code — no premature folder flash."""
+    staging = Path(f"/tmp/.ml_staging_{project_name}_{timestamp}")
+    staging.mkdir(parents=True, exist_ok=True)
+    return staging
+
+def create_project(cfg: dict) -> tuple:
+    """
+    Return (project_dir, staging_dir).
+    All work happens in staging_dir; a single shutil.move() at the end
+    makes the project appear in VS Code exactly once — complete and ready.
+    """
     template_dir = Path(__file__).parent.resolve()
     timestamp    = datetime.now().strftime("%Y%m%d_%H%M%S")
     project_dir  = template_dir.parent / f"{cfg['project_name']}_{timestamp}"
-    project_dir.mkdir(parents=True, exist_ok=True)
+    staging_dir  = _make_staging_dir(cfg['project_name'], timestamp)
     print(f"\n{G}▶ Creating project at: {project_dir}{X}")
-    return project_dir
+    return project_dir, staging_dir
 
-def create_venv(project_dir: Path):
-    """Create the virtual environment only (pip install comes after template copy)."""
+def create_venv(staging_dir: Path):
+    """Create .venv inside the staging dir (invisible to VS Code)."""
     print(f"{G}▶ Creating Python virtual environment (.venv)...{X}")
-    subprocess.run([sys.executable, "-m", "venv", str(project_dir / ".venv")], check=True)
+    subprocess.run([sys.executable, "-m", "venv", str(staging_dir / ".venv")], check=True)
     print(f"  {G}✔ Virtual environment created{X}")
 
-def install_deps(project_dir: Path):
-    """Install dependencies — call after copy_template so requirements.txt exists."""
+def install_deps(staging_dir: Path):
+    """Install all deps into the staging venv (invisible to VS Code)."""
     print(f"{G}▶ Installing dependencies (this may take a minute)...{X}")
-    pip = str(project_dir / ".venv" / "bin" / "pip")
+    pip = str(staging_dir / ".venv" / "bin" / "pip")
     subprocess.run([pip, "install", "--upgrade", "pip", "-q"], check=True)
-    req = project_dir / "requirements.txt"
+    req = staging_dir / "requirements.txt"
     if req.exists():
         subprocess.run([pip, "install", "-r", str(req), "-q"], check=True)
     print(f"  {G}✔ Dependencies installed{X}")
+
+def move_to_final(staging_dir: Path, project_dir: Path):
+    """
+    Atomic move: staging → project_dir.
+    VS Code sees the project appear ONCE — fully populated, .venv already inside.
+    Then fix .venv script shebangs (path changed from /tmp/... to project_dir).
+    """
+    shutil.move(str(staging_dir), str(project_dir))
+    # Fix shebang paths in .venv/bin/pip etc. after the directory was renamed
+    venv = project_dir / ".venv"
+    try:
+        subprocess.run(
+            [sys.executable, "-m", "venv", "--upgrade", str(venv)],
+            check=True, capture_output=True
+        )
+    except Exception:
+        # Fallback: reinstall pip to fix shebang (fast, no package reinstall)
+        python = str(venv / "bin" / "python")
+        subprocess.run([python, "-m", "pip", "install", "pip", "-q"],
+                       check=False, capture_output=True)
 
 EXCLUDE = {
     ".git", "__pycache__", ".venv", ".DS_Store",
@@ -180,19 +211,20 @@ def _ignore(src: str, names: list[str]) -> set[str]:
             ignored.add(name)
     return ignored
 
-def copy_template(template_dir: Path, project_dir: Path):
-    print(f"{G}▶ Copying template files...{X}")
-    shutil.copytree(str(template_dir), str(project_dir), ignore=_ignore, dirs_exist_ok=True)
-    print(f"  {G}✔ Template files copied{X}")
+def copy_template(template_dir: Path, staging_dir: Path):
+    print(f"{G}▶ Preparing template files...{X}")
+    shutil.copytree(str(template_dir), str(staging_dir), ignore=_ignore, dirs_exist_ok=True)
+    print(f"  {G}✔ Template files ready{X}")
 
-def copy_dataset(cfg: dict, project_dir: Path):
+def copy_dataset(cfg: dict, staging_dir: Path):
     if cfg["dataset_path"] and Path(cfg["dataset_path"]).is_file():
-        dest = project_dir / "data"
+        dest = staging_dir / "data"
         dest.mkdir(exist_ok=True)
         shutil.copy2(cfg["dataset_path"], dest / cfg["dataset_filename"])
         print(f"  {G}✔ Dataset copied: {cfg['dataset_filename']}{X}")
 
-def write_config(cfg: dict, project_dir: Path):
+def write_config(cfg: dict, staging_dir: Path):
+    """Write .ml_config.json into staging dir (moved to project later)."""
     py_ver = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     gh_user = cfg.get("github_username", "")
     gh_repo = cfg.get("github_repo", cfg["project_name"])
@@ -212,8 +244,8 @@ def write_config(cfg: dict, project_dir: Path):
         "venv_path":         ".venv",
         "template_version":  "1.0.0",
     }
-    (project_dir / ".ml_config.json").write_text(json.dumps(config, indent=2))
-    print(f"  {G}✔ .ml_config.json written{X}")
+    (staging_dir / ".ml_config.json").write_text(json.dumps(config, indent=2))
+    print(f"  {G}✔ .ml_config.json ready{X}")
 
 def show_summary(cfg: dict, project_dir: Path):
     fn   = cfg["dataset_filename"] or "<not provided yet>"
@@ -253,12 +285,18 @@ if __name__ == "__main__":
         os.execv("/bin/bash", ["/bin/bash", str(script)])
 
     # choices "2" and "3" both go through full project setup + launch
-    cfg         = collect_inputs()
-    project_dir = create_project(cfg)
-    create_venv(project_dir)                              # 1. venv first
-    copy_template(Path(__file__).parent.resolve(), project_dir)  # 2. then template files
-    copy_dataset(cfg, project_dir)
-    write_config(cfg, project_dir)
-    install_deps(project_dir)                             # 3. pip install (requirements.txt now exists)
+    cfg                      = collect_inputs()
+    project_dir, staging_dir = create_project(cfg)
+
+    # All heavy work happens in /tmp (invisible to VS Code)
+    copy_template(Path(__file__).parent.resolve(), staging_dir)  # 1. template files
+    copy_dataset(cfg, staging_dir)                                # 2. dataset
+    write_config(cfg, staging_dir)                                # 3. config
+    create_venv(staging_dir)                                      # 4. .venv
+    install_deps(staging_dir)                                     # 5. pip install
+
+    # One atomic move → VS Code sees project appear once, complete
+    move_to_final(staging_dir, project_dir)
+
     show_summary(cfg, project_dir)
     maybe_open_claude(project_dir)

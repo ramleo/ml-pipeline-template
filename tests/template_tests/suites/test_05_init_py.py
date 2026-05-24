@@ -7,7 +7,7 @@ What we test:
   5c. .venv/ exists with Python binary
   5d. .ml_config.json has all required keys and correct values
   5e. All template files copied into project
-  5f. .venv was created BEFORE other project folders (birthtime check)
+  5f. Staging approach used: copy → venv → pip → atomic move (output check)
   5g. Dataset CSV is copied when path is provided
   5h. requirements.txt present in created project
 
@@ -159,42 +159,47 @@ def _test_template_files_copied() -> TestResult:
     return passresult("init.py: template files copied", f"{len(REQUIRED_PROJECT_FILES)} files present")
 
 
-def _test_venv_created_before_folders() -> TestResult:
+def _test_staging_approach_used() -> TestResult:
+    """
+    Staging approach: copy_template → create_venv → install_deps (all in /tmp),
+    then one atomic move_to_final(). Verify console output confirms this order —
+    meaning VS Code sees the project appear ONCE, complete, not incrementally.
+    """
     _ensure_project_created()
     if _shared_project is None:
-        return failresult("init.py: .venv before template folders", _setup_error or "Project not created")
+        return failresult("init.py: staging approach (atomic project creation)", _setup_error or "Project not created")
 
-    venv = _shared_project / ".venv"
-    if not venv.exists():
-        return failresult("init.py: .venv before template folders", ".venv not found")
+    stdout = _shared_result.stdout if _shared_result else ""
 
-    try:
-        venv_btime = venv.stat().st_birthtime
-    except AttributeError:
-        return skip("init.py: .venv before template folders",
-                    "st_birthtime not available on this OS (Linux)")
-
-    later_dirs = ["data", "src", "deploy", "docs", "tests"]
-    violations = []
-    for d in later_dirs:
-        dp = _shared_project / d
-        if not dp.exists():
-            continue
-        try:
-            d_btime = dp.stat().st_birthtime
-        except AttributeError:
-            continue
-        if venv_btime > d_btime + 0.5:
-            violations.append(f"{d}/ created before .venv (delta={venv_btime - d_btime:.3f}s)")
-
-    if violations:
+    # Check all staging-phase messages appear in output
+    staging_msgs = [
+        "Preparing template files",   # copy_template to staging
+        "Creating Python virtual",    # create_venv in staging
+        "Installing dependencies",    # install_deps in staging
+        "Creating project at:",       # move_to_final → VS Code sees project once
+    ]
+    missing_msgs = [s for s in staging_msgs if s not in stdout]
+    if missing_msgs:
         return failresult(
-            "init.py: .venv before template folders",
-            ".venv was created AFTER some folders",
-            details="\n".join(violations),
+            "init.py: staging approach (atomic project creation)",
+            f"Missing expected output messages: {missing_msgs}",
+            details=f"stdout (last 600):\n{stdout[-600:]}",
         )
-    return passresult("init.py: .venv before template folders",
-                      f".venv birthtime <= all {len(later_dirs)} template folders ✓")
+
+    # Verify messages appear in correct order
+    prep_pos = stdout.find("Preparing template files")
+    venv_pos = stdout.find("Creating Python virtual")
+    pip_pos  = stdout.find("Installing dependencies")
+    mv_pos   = stdout.find("Creating project at:")
+
+    if not (prep_pos < venv_pos < pip_pos < mv_pos):
+        return failresult(
+            "init.py: staging approach (atomic project creation)",
+            f"Staging steps out of order (prep={prep_pos}, venv={venv_pos}, pip={pip_pos}, mv={mv_pos})"
+        )
+
+    return passresult("init.py: staging approach (atomic project creation)",
+                      "copy → venv → pip → atomic move order confirmed in output")
 
 
 def _test_csv_copied_when_provided() -> TestResult:
@@ -256,7 +261,7 @@ def run_suite(fast: bool = False) -> List[TestResult]:
         ("init.py: .venv/ exists",                 _test_venv_exists),
         ("init.py: .ml_config.json valid",         _test_ml_config_valid),
         ("init.py: template files copied",         _test_template_files_copied),
-        ("init.py: .venv before template folders", _test_venv_created_before_folders),
+        ("init.py: staging approach used",          _test_staging_approach_used),
         ("init.py: CSV copied when provided",      _test_csv_copied_when_provided),
         ("init.py: requirements.txt in project",   _test_requirements_txt_in_project),
     ]

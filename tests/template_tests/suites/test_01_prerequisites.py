@@ -178,62 +178,83 @@ def _test_src_claude_md_sections() -> TestResult:
     return passresult("src/CLAUDE.md contains all agent specs", f"{len(SRC_CLAUDE_AGENT_SECTIONS)} sections verified")
 
 
-def _test_start_sh_venv_before_rsync() -> TestResult:
-    """Verify start.sh creates .venv BEFORE rsync (critical venv-first fix)."""
+def _test_start_sh_staging_order() -> TestResult:
+    """Verify start.sh uses staging approach: rsync → venv → pip → atomic mv."""
     p = TEMPLATE_DIR / "start.sh"
     content = p.read_text()
 
-    venv_pos  = content.find("python3 -m venv")
-    rsync_pos = content.find("rsync")
-    pip_pos   = content.find('bin/pip" install -r')
+    staging_pos = content.find("STAGING_DIR=")
+    rsync_pos   = content.find("rsync")
+    venv_pos    = content.find("python3 -m venv")
+    pip_pos     = content.find('bin/pip" install -r')
+    mv_pos      = content.find('mv "$STAGING_DIR"')
 
-    if venv_pos == -1:
-        return failresult("start.sh: .venv created before rsync", "Could not find 'python3 -m venv' in start.sh")
-    if rsync_pos == -1:
-        return failresult("start.sh: .venv created before rsync", "Could not find 'rsync' in start.sh")
-    if pip_pos == -1:
-        return failresult("start.sh: .venv created before rsync", "Could not find pip install in start.sh")
+    checks = [
+        ("STAGING_DIR defined",    staging_pos != -1),
+        ("rsync present",          rsync_pos != -1),
+        ("venv creation present",  venv_pos != -1),
+        ("pip install present",    pip_pos != -1),
+        ("atomic mv present",      mv_pos != -1),
+    ]
+    failed = [name for name, ok in checks if not ok]
+    if failed:
+        return failresult("start.sh: staging order (rsync→venv→pip→mv)", f"Missing: {failed}")
 
-    if not (venv_pos < rsync_pos):
+    if not (rsync_pos < venv_pos):
         return failresult(
-            "start.sh: .venv created before rsync",
-            f"venv creation (pos {venv_pos}) is NOT before rsync (pos {rsync_pos})"
+            "start.sh: staging order (rsync→venv→pip→mv)",
+            f"rsync (pos {rsync_pos}) is NOT before venv (pos {venv_pos}) — staging order broken"
         )
-    if not (rsync_pos < pip_pos):
+    if not (venv_pos < pip_pos):
         return failresult(
-            "start.sh: pip install after rsync",
-            f"pip install (pos {pip_pos}) is NOT after rsync (pos {rsync_pos})"
+            "start.sh: staging order (rsync→venv→pip→mv)",
+            f"venv (pos {venv_pos}) is NOT before pip (pos {pip_pos})"
         )
-    return passresult("start.sh: .venv created before rsync (and pip after rsync)")
+    if not (pip_pos < mv_pos):
+        return failresult(
+            "start.sh: staging order (rsync→venv→pip→mv)",
+            f"pip (pos {pip_pos}) is NOT before mv (pos {mv_pos})"
+        )
+    return passresult("start.sh: staging order (rsync→venv→pip→mv)", "rsync → venv → pip → mv ✓")
 
 
-def _test_init_py_venv_before_copy() -> TestResult:
-    """Verify init.py calls create_venv() before copy_template() in __main__."""
+def _test_init_py_staging_order() -> TestResult:
+    """Verify init.py __main__ uses staging: copy_template → create_venv → install_deps → move_to_final."""
     p = TEMPLATE_DIR / "init.py"
     content = p.read_text()
 
-    create_venv_pos  = content.rfind("create_venv(")
     copy_tmpl_pos    = content.rfind("copy_template(")
+    create_venv_pos  = content.rfind("create_venv(")
     install_deps_pos = content.rfind("install_deps(")
+    move_final_pos   = content.rfind("move_to_final(")
 
-    if create_venv_pos == -1:
-        return failresult("init.py: create_venv() before copy_template()", "create_venv() call not found in __main__")
-    if copy_tmpl_pos == -1:
-        return failresult("init.py: create_venv() before copy_template()", "copy_template() call not found in __main__")
-    if install_deps_pos == -1:
-        return failresult("init.py: create_venv() before copy_template()", "install_deps() call not found in __main__")
+    checks = [
+        ("copy_template() call present",  copy_tmpl_pos != -1),
+        ("create_venv() call present",    create_venv_pos != -1),
+        ("install_deps() call present",   install_deps_pos != -1),
+        ("move_to_final() call present",  move_final_pos != -1),
+    ]
+    failed = [name for name, ok in checks if not ok]
+    if failed:
+        return failresult("init.py: staging order (copy→venv→install→move)", f"Missing: {failed}")
 
-    if not (create_venv_pos < copy_tmpl_pos):
+    if not (copy_tmpl_pos < create_venv_pos):
         return failresult(
-            "init.py: create_venv() before copy_template()",
-            f"create_venv at {create_venv_pos} is NOT before copy_template at {copy_tmpl_pos}"
+            "init.py: staging order (copy→venv→install→move)",
+            f"copy_template at {copy_tmpl_pos} is NOT before create_venv at {create_venv_pos}"
         )
-    if not (copy_tmpl_pos < install_deps_pos):
+    if not (create_venv_pos < install_deps_pos):
         return failresult(
-            "init.py: install_deps() after copy_template()",
-            f"install_deps at {install_deps_pos} is NOT after copy_template at {copy_tmpl_pos}"
+            "init.py: staging order (copy→venv→install→move)",
+            f"create_venv at {create_venv_pos} is NOT before install_deps at {install_deps_pos}"
         )
-    return passresult("init.py: create_venv() → copy_template() → install_deps() order correct")
+    if not (install_deps_pos < move_final_pos):
+        return failresult(
+            "init.py: staging order (copy→venv→install→move)",
+            f"install_deps at {install_deps_pos} is NOT before move_to_final at {move_final_pos}"
+        )
+    return passresult("init.py: staging order (copy→venv→install→move)",
+                      "copy_template → create_venv → install_deps → move_to_final ✓")
 
 
 def run_suite() -> List[TestResult]:
@@ -245,8 +266,8 @@ def run_suite() -> List[TestResult]:
         (".claude/settings.local.json valid",     _test_settings_local_json),
         ("requirements.txt packages",             _test_requirements_txt),
         ("src/CLAUDE.md agent specs",             _test_src_claude_md_sections),
-        ("start.sh venv-before-rsync order",      _test_start_sh_venv_before_rsync),
-        ("init.py venv-before-copy order",        _test_init_py_venv_before_copy),
+        ("start.sh staging order",                 _test_start_sh_staging_order),
+        ("init.py staging order",                  _test_init_py_staging_order),
     ]
     return [run_test(name, func) for name, func in tests]
 

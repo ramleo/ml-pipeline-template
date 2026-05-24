@@ -158,21 +158,30 @@ else
     echo -e "  ${YELLOW}⚠ No GitHub username provided — skipping GitHub setup.${RESET}"
 fi
 
-# ── Step 3: Create new project directory ──────────────────────────
+# ── Step 3: Resolve paths ──────────────────────────────────────────
 TEMPLATE_DIR="$(cd "$(dirname "$0")" && pwd)"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 PROJECT_DIR="$(dirname "$TEMPLATE_DIR")/${PROJECT_NAME}_${TIMESTAMP}"
-mkdir -p "$PROJECT_DIR"
+
+# ── Step 4: Stage everything in /tmp first ─────────────────────────
+# This means VS Code sees the project folder appear ONCE — complete,
+# not incrementally. We mv the whole thing atomically at the end.
+STAGING_DIR="/tmp/.ml_staging_${PROJECT_NAME}_${TIMESTAMP}"
+STAGING_DIR_SET=true
+
+# Clean up staging dir on any unexpected exit
+cleanup_staging() {
+    if [ "${STAGING_DIR_SET:-false}" = "true" ] && [ -d "$STAGING_DIR" ]; then
+        rm -rf "$STAGING_DIR" 2>/dev/null
+    fi
+}
+trap cleanup_staging EXIT
+
+mkdir -p "$STAGING_DIR"
+
+# ── Step 5: Copy template files into staging ───────────────────────
 echo ""
-echo -e "${GREEN}▶ Creating project at: $PROJECT_DIR${RESET}"
-
-# ── Step 4: Create Python venv first ──────────────────────────────
-echo -e "${GREEN}▶ Creating Python virtual environment (.venv)...${RESET}"
-python3 -m venv "$PROJECT_DIR/.venv"
-echo -e "  ${GREEN}✔ Virtual environment ready${RESET}"
-
-# ── Step 5: Copy template files ────────────────────────────────────
-echo -e "${GREEN}▶ Copying template files...${RESET}"
+echo -e "${GREEN}▶ Preparing project files...${RESET}"
 rsync -a \
     --exclude='.git/' \
     --exclude='data/*.csv' \
@@ -183,22 +192,21 @@ rsync -a \
     --exclude='__pycache__/' \
     --exclude='.DS_Store' \
     --exclude='.ml_config.json' \
-    "$TEMPLATE_DIR/" "$PROJECT_DIR/"
-echo -e "  ${GREEN}✔ Template files copied${RESET}"
+    "$TEMPLATE_DIR/" "$STAGING_DIR/"
+echo -e "  ${GREEN}✔ Template files ready${RESET}"
 
 # ── Step 6: Copy dataset if provided ──────────────────────────────
 if [ -n "$DATASET_PATH" ] && [ -f "$DATASET_PATH" ]; then
-    mkdir -p "$PROJECT_DIR/data"
-    cp "$DATASET_PATH" "$PROJECT_DIR/data/"
-    echo -e "  ${GREEN}✔ Dataset copied: $DATASET_FILENAME${RESET}"
+    cp "$DATASET_PATH" "$STAGING_DIR/data/"
+    echo -e "  ${GREEN}✔ Dataset staged: $DATASET_FILENAME${RESET}"
 fi
 
-# ── Step 7: Write .ml_config.json ─────────────────────────────────
+# ── Step 7: Write .ml_config.json into staging ────────────────────
 DATASET_FILENAME_SAFE="${DATASET_FILENAME:-<not provided yet>}"
 PY_VER=$(python3 --version 2>&1 | awk '{print $2}')
 CREATED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-cat > "$PROJECT_DIR/.ml_config.json" << CONFIGEOF
+cat > "$STAGING_DIR/.ml_config.json" << CONFIGEOF
 {
   "project_name": "${PROJECT_NAME}",
   "dataset_filename": "${DATASET_FILENAME_SAFE}",
@@ -216,15 +224,31 @@ cat > "$PROJECT_DIR/.ml_config.json" << CONFIGEOF
   "template_version": "1.0.0"
 }
 CONFIGEOF
-echo -e "  ${GREEN}✔ .ml_config.json written${RESET}"
+echo -e "  ${GREEN}✔ Config ready${RESET}"
 
-# ── Step 8: Install dependencies (requirements.txt now available) ──
+# ── Step 8: Create venv inside staging ────────────────────────────
+echo -e "${GREEN}▶ Creating Python virtual environment (.venv)...${RESET}"
+python3 -m venv "$STAGING_DIR/.venv"
+echo -e "  ${GREEN}✔ Virtual environment created${RESET}"
+
+# ── Step 9: Install dependencies inside staging ───────────────────
 echo -e "${GREEN}▶ Installing dependencies (this may take a minute)...${RESET}"
-"$PROJECT_DIR/.venv/bin/pip" install --upgrade pip -q
-"$PROJECT_DIR/.venv/bin/pip" install -r "$PROJECT_DIR/requirements.txt" -q
+"$STAGING_DIR/.venv/bin/pip" install --upgrade pip -q
+"$STAGING_DIR/.venv/bin/pip" install -r "$STAGING_DIR/requirements.txt" -q
 echo -e "  ${GREEN}✔ Dependencies installed${RESET}"
 
-# ── Step 8: Completion summary ─────────────────────────────────────
+# ── Step 10: Move staging → final location (one atomic operation) ──
+# VS Code sees the project folder appear ONCE, fully populated,
+# with .venv already inside it.
+echo -e "${GREEN}▶ Creating project at: $PROJECT_DIR${RESET}"
+mv "$STAGING_DIR" "$PROJECT_DIR"
+STAGING_DIR_SET=false   # nothing left to clean up
+
+# Fix .venv script shebangs after the path changed (fast, no reinstall)
+python3 -m venv --upgrade "$PROJECT_DIR/.venv" 2>/dev/null || \
+    "$PROJECT_DIR/.venv/bin/python" -m pip install pip -q 2>/dev/null || true
+
+# ── Step 11: Completion summary ────────────────────────────────────
 echo ""
 echo -e "${CYAN}${BOLD}╔══════════════════════════════════════════════════╗${RESET}"
 echo -e "${CYAN}${BOLD}║  ✅  Project ready!                              ║${RESET}"
@@ -241,7 +265,7 @@ echo -e "${CYAN}${BOLD}║  ✅  Launching Claude Code...                    ║
 echo -e "${CYAN}${BOLD}╚══════════════════════════════════════════════════╝${RESET}"
 echo ""
 
-# ── Step 9: Launch Claude Code ────────────────────────────────────
+# ── Step 12: Launch Claude Code ────────────────────────────────────
 echo -e "${GREEN}▶ Launching Claude Code in your new project...${RESET}"
 cd "$PROJECT_DIR"
 source ".venv/bin/activate"

@@ -133,22 +133,30 @@ def _test_how_to_run_md() -> TestResult:
 def _test_start_sh_mode_handling() -> TestResult:
     p = TEMPLATE_DIR / "start.sh"
     content = p.read_text()
-    # Note: start.sh handles option 1 implicitly (fall-through); option 2 and 3 are the special cases.
+    # New staging approach: everything goes to /tmp first, then one atomic mv to final path.
+    staging_pos = content.find("STAGING_DIR=")
+    rsync_pos   = content.find("rsync")
+    venv_pos    = content.find("python3 -m venv")
+    pip_pos     = content.find(".venv/bin/pip")
+    mv_pos      = content.find("mv \"$STAGING_DIR\"")
     checks = [
-        ("Option 2: delegates to init.py",   "init.py" in content),
-        ("Option 3: sets LAUNCH_CLAUDE",      'LAUNCH_CLAUDE=true' in content),
-        ("Option 3 runs claude .",            'claude .' in content),
-        ("Default is 3",                      'ENTRY_MODE:-3' in content or 'default: 3' in content),
-        ("pip install uses .venv path",       '.venv/bin/pip' in content),
-        ("rsync excludes .venv",              "--exclude='.venv/'" in content or '--exclude=.venv/' in content),
-        ("python3 -m venv creates venv",      "python3 -m venv" in content),
-        ("venv created before rsync",         content.find("python3 -m venv") < content.find("rsync")),
-        ("pip install after rsync",           content.find("rsync") < content.find('.venv/bin/pip')),
+        ("Option 2: delegates to init.py",        "init.py" in content),
+        ("Option 3: sets LAUNCH_CLAUDE",           'LAUNCH_CLAUDE=true' in content),
+        ("Option 3 runs claude .",                 'claude .' in content),
+        ("Default is 3",                           'ENTRY_MODE:-3' in content or 'default: 3' in content),
+        ("STAGING_DIR in /tmp defined",            staging_pos != -1 and "/tmp" in content),
+        ("rsync goes to STAGING_DIR",              "STAGING_DIR/" in content and rsync_pos != -1),
+        ("venv created in staging",                venv_pos != -1),
+        ("pip install in staging",                 pip_pos != -1),
+        ("atomic mv staging → final",              mv_pos != -1),
+        ("rsync before venv (stage then create)",  rsync_pos < venv_pos),
+        ("venv before mv (complete before move)",  venv_pos < mv_pos),
+        ("pip before mv (installed before move)",  pip_pos < mv_pos),
     ]
     failed = [name for name, ok in checks if not ok]
     if failed:
-        return failresult("start.sh: mode handling and venv logic", f"Missing: {failed}")
-    return passresult("start.sh: mode handling and venv logic", f"All {len(checks)} checks passed")
+        return failresult("start.sh: staging approach", f"Failed: {failed}")
+    return passresult("start.sh: staging approach", f"All {len(checks)} checks passed")
 
 
 def _test_bootstrap_creates_all_dirs() -> TestResult:
