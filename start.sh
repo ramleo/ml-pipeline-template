@@ -166,7 +166,12 @@ mkdir -p "$PROJECT_DIR"
 echo ""
 echo -e "${GREEN}▶ Creating project at: $PROJECT_DIR${RESET}"
 
-# ── Step 4: Copy template files ────────────────────────────────────
+# ── Step 4: Create Python venv first ──────────────────────────────
+echo -e "${GREEN}▶ Creating Python virtual environment (.venv)...${RESET}"
+python3 -m venv "$PROJECT_DIR/.venv"
+echo -e "  ${GREEN}✔ Virtual environment ready${RESET}"
+
+# ── Step 5: Copy template files ────────────────────────────────────
 echo -e "${GREEN}▶ Copying template files...${RESET}"
 rsync -a \
     --exclude='.git/' \
@@ -181,14 +186,14 @@ rsync -a \
     "$TEMPLATE_DIR/" "$PROJECT_DIR/"
 echo -e "  ${GREEN}✔ Template files copied${RESET}"
 
-# ── Step 5: Copy dataset if provided ──────────────────────────────
+# ── Step 6: Copy dataset if provided ──────────────────────────────
 if [ -n "$DATASET_PATH" ] && [ -f "$DATASET_PATH" ]; then
     mkdir -p "$PROJECT_DIR/data"
     cp "$DATASET_PATH" "$PROJECT_DIR/data/"
     echo -e "  ${GREEN}✔ Dataset copied: $DATASET_FILENAME${RESET}"
 fi
 
-# ── Step 6: Write .ml_config.json ─────────────────────────────────
+# ── Step 7: Write .ml_config.json ─────────────────────────────────
 DATASET_FILENAME_SAFE="${DATASET_FILENAME:-<not provided yet>}"
 PY_VER=$(python3 --version 2>&1 | awk '{print $2}')
 CREATED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -213,10 +218,7 @@ cat > "$PROJECT_DIR/.ml_config.json" << CONFIGEOF
 CONFIGEOF
 echo -e "  ${GREEN}✔ .ml_config.json written${RESET}"
 
-# ── Step 7: Create Python venv ─────────────────────────────────────
-echo -e "${GREEN}▶ Creating Python virtual environment (.venv)...${RESET}"
-python3 -m venv "$PROJECT_DIR/.venv"
-echo -e "  ${GREEN}✔ Virtual environment ready${RESET}"
+# ── Step 8: Install dependencies (requirements.txt now available) ──
 echo -e "${GREEN}▶ Installing dependencies (this may take a minute)...${RESET}"
 "$PROJECT_DIR/.venv/bin/pip" install --upgrade pip -q
 "$PROJECT_DIR/.venv/bin/pip" install -r "$PROJECT_DIR/requirements.txt" -q

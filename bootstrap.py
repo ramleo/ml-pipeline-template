@@ -935,7 +935,12 @@ mkdir -p "$PROJECT_DIR"
 echo ""
 echo -e "${GREEN}▶ Creating project at: $PROJECT_DIR${RESET}"
 
-# ── Step 4: Copy template files ────────────────────────────────────
+# ── Step 4: Create Python venv first ──────────────────────────────
+echo -e "${GREEN}▶ Creating Python virtual environment (.venv)...${RESET}"
+python3 -m venv "$PROJECT_DIR/.venv"
+echo -e "  ${GREEN}✔ Virtual environment ready${RESET}"
+
+# ── Step 5: Copy template files ────────────────────────────────────
 echo -e "${GREEN}▶ Copying template files...${RESET}"
 rsync -a \
     --exclude='.git/' \
@@ -950,14 +955,14 @@ rsync -a \
     "$TEMPLATE_DIR/" "$PROJECT_DIR/"
 echo -e "  ${GREEN}✔ Template files copied${RESET}"
 
-# ── Step 5: Copy dataset if provided ──────────────────────────────
+# ── Step 6: Copy dataset if provided ──────────────────────────────
 if [ -n "$DATASET_PATH" ] && [ -f "$DATASET_PATH" ]; then
     mkdir -p "$PROJECT_DIR/data"
     cp "$DATASET_PATH" "$PROJECT_DIR/data/"
     echo -e "  ${GREEN}✔ Dataset copied: $DATASET_FILENAME${RESET}"
 fi
 
-# ── Step 6: Write .ml_config.json ─────────────────────────────────
+# ── Step 7: Write .ml_config.json ─────────────────────────────────
 DATASET_FILENAME_SAFE="${DATASET_FILENAME:-<not provided yet>}"
 PY_VER=$(python3 --version 2>&1 | awk '{print $2}')
 CREATED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -982,10 +987,7 @@ cat > "$PROJECT_DIR/.ml_config.json" << CONFIGEOF
 CONFIGEOF
 echo -e "  ${GREEN}✔ .ml_config.json written${RESET}"
 
-# ── Step 7: Create Python venv ─────────────────────────────────────
-echo -e "${GREEN}▶ Creating Python virtual environment (.venv)...${RESET}"
-python3 -m venv "$PROJECT_DIR/.venv"
-echo -e "  ${GREEN}✔ Virtual environment ready${RESET}"
+# ── Step 8: Install dependencies (requirements.txt now available) ──
 echo -e "${GREEN}▶ Installing dependencies (this may take a minute)...${RESET}"
 "$PROJECT_DIR/.venv/bin/pip" install --upgrade pip -q
 "$PROJECT_DIR/.venv/bin/pip" install -r "$PROJECT_DIR/requirements.txt" -q
@@ -1173,9 +1175,13 @@ def create_project(cfg: dict) -> Path:
     return project_dir
 
 def create_venv(project_dir: Path):
-    print(f"{G}▶ Setting up Python environment...{X}")
+    """Create the virtual environment only (pip install comes after template copy)."""
+    print(f"{G}▶ Creating Python virtual environment (.venv)...{X}")
     subprocess.run([sys.executable, "-m", "venv", str(project_dir / ".venv")], check=True)
     print(f"  {G}✔ Virtual environment created{X}")
+
+def install_deps(project_dir: Path):
+    """Install dependencies — call after copy_template so requirements.txt exists."""
     print(f"{G}▶ Installing dependencies (this may take a minute)...{X}")
     pip = str(project_dir / ".venv" / "bin" / "pip")
     subprocess.run([pip, "install", "--upgrade", "pip", "-q"], check=True)
@@ -1275,10 +1281,11 @@ if __name__ == "__main__":
     # choices "2" and "3" both go through full project setup + launch
     cfg         = collect_inputs()
     project_dir = create_project(cfg)
-    copy_template(Path(__file__).parent.resolve(), project_dir)
+    create_venv(project_dir)                              # 1. venv first
+    copy_template(Path(__file__).parent.resolve(), project_dir)  # 2. then template files
     copy_dataset(cfg, project_dir)
     write_config(cfg, project_dir)
-    create_venv(project_dir)
+    install_deps(project_dir)                             # 3. pip install (requirements.txt now exists)
     show_summary(cfg, project_dir)
     maybe_open_claude(project_dir)
 '''
