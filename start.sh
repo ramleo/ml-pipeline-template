@@ -41,8 +41,13 @@ fi
 # 3. Claude Code CLI
 if ! command -v claude &>/dev/null; then
     echo -e "${YELLOW}⚠  Claude Code CLI not found — installing...${RESET}"
-    npm install -g @anthropic/claude-code
-    echo -e "  ${GREEN}✔ Claude Code CLI installed${RESET}"
+    if npm install -g @anthropic-ai/claude-code; then
+        echo -e "  ${GREEN}✔ Claude Code CLI installed${RESET}"
+    else
+        echo -e "  ${RED}✗ Auto-install failed. Run manually:${RESET}"
+        echo -e "    npm install -g @anthropic-ai/claude-code"
+        echo -e "  Or visit: https://docs.anthropic.com/en/docs/claude-code/setup"
+    fi
 else
     echo -e "  ${GREEN}✔ Claude Code CLI $(claude --version 2>/dev/null | head -1)${RESET}"
 fi

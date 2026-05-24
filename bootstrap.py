@@ -788,8 +788,13 @@ fi
 # 3. Claude Code CLI
 if ! command -v claude &>/dev/null; then
     echo -e "${YELLOW}⚠  Claude Code CLI not found — installing...${RESET}"
-    npm install -g @anthropic/claude-code
-    echo -e "  ${GREEN}✔ Claude Code CLI installed${RESET}"
+    if npm install -g @anthropic-ai/claude-code; then
+        echo -e "  ${GREEN}✔ Claude Code CLI installed${RESET}"
+    else
+        echo -e "  ${RED}✗ Auto-install failed. Run manually:${RESET}"
+        echo -e "    npm install -g @anthropic-ai/claude-code"
+        echo -e "  Or visit: https://docs.anthropic.com/en/docs/claude-code/setup"
+    fi
 else
     echo -e "  ${GREEN}✔ Claude Code CLI $(claude --version 2>/dev/null | head -1)${RESET}"
 fi
@@ -819,7 +824,7 @@ if [ "$ENTRY_MODE" = "3" ]; then
         claude .
     else
         echo -e "${RED}Claude Code CLI not found. Install it with:${RESET}"
-        echo "  npm install -g @anthropic/claude-code"
+        echo "  npm install -g @anthropic-ai/claude-code"
         echo ""
         echo "Then run: claude ."
     fi
@@ -993,7 +998,7 @@ source ".venv/bin/activate"
 if command -v claude &>/dev/null; then
     claude .
 else
-    echo -e "${YELLOW}Claude Code CLI not found. Install: npm install -g @anthropic/claude-code${RESET}"
+    echo -e "${YELLOW}Claude Code CLI not found. Install: npm install -g @anthropic-ai/claude-code${RESET}"
     echo -e "Then run: ${BOLD}cd $PROJECT_DIR && source .venv/bin/activate && claude .${RESET}"
 fi
 '''
@@ -1236,7 +1241,7 @@ def maybe_open_claude(project_dir: Path):
         if shutil.which("claude"):
             subprocess.run(["claude", "."])
         else:
-            print(f"{Y}Claude Code CLI not found. Install: npm install -g @anthropic/claude-code{X}")
+            print(f"{Y}Claude Code CLI not found. Install: npm install -g @anthropic-ai/claude-code{X}")
             print(f"Then run: {B}cd {project_dir} && source .venv/bin/activate && claude .{X}")
 
 def claude_code_mode():
@@ -1247,7 +1252,7 @@ def claude_code_mode():
 
   {B}To start:{X}
     1. Install Claude Code CLI (if needed):
-       npm install -g @anthropic/claude-code
+       npm install -g @anthropic-ai/claude-code
     2. Run:
        claude .
 """)
@@ -1256,7 +1261,7 @@ def claude_code_mode():
         if shutil.which("claude"):
             subprocess.run(["claude", "."])
         else:
-            print(f"{Y}Claude Code CLI not found. Install: npm install -g @anthropic/claude-code{X}")
+            print(f"{Y}Claude Code CLI not found. Install: npm install -g @anthropic-ai/claude-code{X}")
 
 if __name__ == "__main__":
     banner()
@@ -1497,8 +1502,13 @@ def check_prereqs():
         print(f"  {G}✔ Claude Code CLI {ver}{X}")
     else:
         print(f"  {Y}⚠  Claude Code CLI not found — installing...{X}")
-        os.system("npm install -g @anthropic/claude-code")
-        print(f"  {G}✔ Claude Code CLI installed{X}")
+        result = os.system("npm install -g @anthropic-ai/claude-code")
+        if result == 0:
+            print(f"  {G}✔ Claude Code CLI installed{X}")
+        else:
+            print(f"  {R}✗ Auto-install failed. Run manually:{X}")
+            print(f"    npm install -g @anthropic-ai/claude-code")
+            print(f"  Or visit: https://docs.anthropic.com/en/docs/claude-code/setup")
 
 check_prereqs()
 

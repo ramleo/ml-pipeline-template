@@ -188,7 +188,7 @@ cd ml-pipeline-template    # 4. enter folder
 | Problem | Fix |
 |---|---|
 | `python3: command not found` | Install Python 3.9+ from [python.org](https://python.org) |
-| `claude: command not found` | Run `./start.sh` — it auto-installs Claude Code CLI |
+| `claude: command not found` | Run `./start.sh` — it auto-installs, or manually: `npm install -g @anthropic-ai/claude-code` |
 | `Permission denied: ./start.sh` | Run `chmod +x start.sh` first |
 | Dataset not found | Copy your `.csv` into the project's `data/` folder, then tell Claude its name |
 | `ml-pipeline-template/` already exists | Run `python3 bootstrap.py my-new-name` to use a different folder name |
