@@ -97,7 +97,7 @@ docker run -d -p 8000:8000 --name <container-name> <image-name>:latest
 curl http://localhost:8000/health
 curl -X POST http://localhost:8000/predict \
   -H "Content-Type: application/json" \
-  -d '{"sepal_length_cm":5.1,"sepal_width_cm":3.5,"petal_length_cm":1.4,"petal_width_cm":0.2}'
+  -d '<use feature values from your dataset>'
 
 # Stop & remove
 docker stop <container-name> && docker rm <container-name>
@@ -107,8 +107,8 @@ docker stop <container-name> && docker rm <container-name>
 Document the following in `docs/docker_guide.md`:
 - Build command
 - Run command
-- All test-it-live curl examples (health, single predict ×3 species, batch predict, Swagger UI)
-- Post-deploy test commands (replace localhost with Render URL)
+- All test-it-live curl examples (health, single predict, batch predict, Swagger UI)
+- Post-deploy test commands (replace localhost with live URL)
 - Useful Docker commands reference table
 - Image details table
 

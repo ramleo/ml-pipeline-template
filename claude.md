@@ -39,27 +39,46 @@ Delegate to a sub-agent whenever a task is **token-heavy, self-contained, or pro
 2. **State Tracking**: Update the task list below by checking off items as you complete each phase.
 3. **Reproducibility**: Always use `random_state=42` for data splits and model initializations.
 
-# Project Scope (Dynamically Filled upon Initialization)
-- **Target CSV File**: `data/Iris.csv`
-- **Target Variable / Label**: `Species`
-- **ML Task Type**: Classification (multi-class: Iris-setosa, Iris-versicolor, Iris-virginica)
-- **Tech Stack**: Python, Pandas, Scikit-Learn, Joblib
+# Project Scope (loaded from .ml_config.json on startup)
+- **Target CSV File**: `<read from .ml_config.json → dataset_path, or ask user>`
+- **Target Variable / Label**: `<auto-detect from dataset, or ask user>`
+- **ML Task Type**: `<auto-detect: classification if categorical target, regression if numeric>`
+- **Deployment Platform**: `<read from .ml_config.json → deployment_platform>`
+- **Tech Stack**: Python, Pandas, Scikit-Learn, Joblib, FastAPI
 
 # ML Process Checklist
-- [x] 1.  Workspace Scan & Dataset Auto-Discovery
-- [x] 2.  Data Inspection & EDA (Via EDA Agent: Detect task type, save plots, report summary)
-- [x] 3.  Automated Preprocessing & Cleaning (Via Data Engineering Agent: Build robust pipelines)
-- [x] 4.  Feature Scaling & Train-Test Split (80/20 stratified split for classification, random for regression)
-- [x] 5.  Baseline Model Training & Tuning (Via Optimization Agent: Fit and tune appropriate model)
-- [x] 6.  Model Evaluation (Generate metrics: Classification Report or RMSE/R2 based on task type)
-- [x] 7.  Pipeline Export (Save the entire trained preprocessing + model pipeline as `models/final_pipeline.pkl`)
-- [x] 8.  Summary Report (Create `summary.md`)
-- [x] 9.  Requirements File (Create `requirements.txt` with pinned library versions)
-- [x] 10. Workspace Reorganisation (Create subfolders; move files to reduce clutter)
-- [x] 11. Git Initialisation & GitHub Push (git init → .gitignore → commit → gh repo create → push)
-- [x] 12. Dockerfile & Containerisation (Multi-stage Dockerfile + .dockerignore; build & test locally; push to GitHub)
-- [x] 13. Render Deployment (Deploy FastAPI app from GitHub repo via render.yaml; document live endpoints)
-- [ ] 14. Generic Cloud Deployment (Optional: deploy to AWS / GCP / Azure / Fly.io / Railway using Cloud Deploy Agent)
+- [ ] 0.  Virtual Environment Setup (Create .venv, activate, pip install -r requirements.txt)
+- [ ] 1.  Workspace Scan & Dataset Auto-Discovery
+- [ ] 2.  Data Inspection & EDA (Via EDA Agent: Detect task type, save plots, report summary)
+- [ ] 3.  Automated Preprocessing & Cleaning (Via Data Engineering Agent: Build robust pipelines)
+- [ ] 4.  Feature Scaling & Train-Test Split (80/20 stratified split for classification, random for regression)
+- [ ] 5.  Baseline Model Training & Tuning (Via Optimization Agent: Fit and tune appropriate model)
+- [ ] 6.  Model Evaluation (Generate metrics: Classification Report or RMSE/R2 based on task type)
+- [ ] 7.  Pipeline Export (Save the entire trained preprocessing + model pipeline as `models/final_pipeline.pkl`)
+- [ ] 8.  Summary Report (Create `docs/summary.md`)
+- [ ] 9.  Requirements File (Create `requirements.txt` with pinned library versions)
+- [ ] 10. Workspace Reorganisation (Create subfolders; move files to reduce clutter)
+- [ ] 11. Git Initialisation & GitHub Push (git init → .gitignore → commit → gh repo create → push)
+- [ ] 12. Dockerfile & Containerisation (Multi-stage Dockerfile + .dockerignore; build & test locally; push to GitHub)
+- [ ] 13. Cloud Deployment (Deploy to chosen platform via render.yaml / fly.toml / railway.toml / apprunner.yaml)
+- [ ] 14. Generic Cloud Deployment (Optional: redeploy to AWS / GCP / Azure / Fly.io / Railway via Cloud Deploy Agent)
 
 # Instructions for Initialization
-Read this file, scan the workspace directory to locate the target CSV file, and read its first 5 rows. Identify the potential target variables, print them out for the user, and ask: "Which column is the target variable?". Once the user answers, immediately launch the EDA Agent to execute Step 2.
+
+1. **Check for `.ml_config.json`** in the project root:
+   - If found: read `dataset_path`, `target_column`, `deployment_platform` from it.
+   - If not found: ask — "Please provide your dataset CSV path:" and "Which column is the target variable?"
+
+2. **Check for `.venv/`** virtual environment:
+   - If missing: run `python3 -m venv .venv` → `source .venv/bin/activate` → `pip install -r requirements.txt`. Mark Step 0 complete.
+   - If exists: run `source .venv/bin/activate`.
+
+3. **Auto-detect task type** from the target column:
+   - If target has ≤ 20 unique values or dtype is object/bool → **Classification**
+   - Otherwise → **Regression**
+
+4. **Scan the workspace** for the CSV file; read its first 5 rows and column names.
+
+5. **Confirm with user**: "Dataset: X rows × Y cols | Target: COLUMN | Task: TYPE — proceed? [Y/n]"
+
+6. Once confirmed, immediately launch the EDA Agent (Step 2).
