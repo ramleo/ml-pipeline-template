@@ -99,17 +99,39 @@ case "$DEPLOY_CHOICE" in
 esac
 
 echo ""
-echo -e "${BOLD}GitHub repo visibility:${RESET}"
-echo "  1) Public"
-echo "  2) Private"
-echo "  3) Skip GitHub setup"
-read -rp "Enter choice [1/2/3] (default: 1): " GH_CHOICE
-GH_CHOICE="${GH_CHOICE:-1}"
-case "$GH_CHOICE" in
-  2) GH_VIS="private" ;;
-  3) GH_VIS="skip" ;;
-  *) GH_VIS="public" ;;
-esac
+echo -e "${BOLD}GitHub setup:${RESET}"
+
+# Auto-detect logged-in GitHub username from gh CLI
+GH_DETECTED=$(gh api user --jq '.login' 2>/dev/null || echo "")
+if [ -n "$GH_DETECTED" ]; then
+    echo -e "  ${GREEN}✔ GitHub account detected: ${GH_DETECTED}${RESET}"
+    read -rp "  GitHub username (press Enter to use '${GH_DETECTED}'): " GH_USER
+    GH_USER="${GH_USER:-$GH_DETECTED}"
+else
+    read -rp "  GitHub username (press Enter to skip GitHub setup): " GH_USER
+fi
+
+# Repo name — defaults to project name (no timestamp)
+if [ -n "$GH_USER" ]; then
+    read -rp "  GitHub repo name (default: ${PROJECT_NAME}): " GH_REPO
+    GH_REPO="${GH_REPO:-$PROJECT_NAME}"
+    GH_REPO="${GH_REPO// /-}"   # replace spaces with hyphens
+
+    echo ""
+    echo -e "${BOLD}  GitHub repo visibility:${RESET}"
+    echo "    1) Public"
+    echo "    2) Private"
+    read -rp "  Enter choice [1/2] (default: 1): " GH_CHOICE
+    GH_CHOICE="${GH_CHOICE:-1}"
+    case "$GH_CHOICE" in
+      2) GH_VIS="private" ;;
+      *) GH_VIS="public" ;;
+    esac
+else
+    GH_REPO=""
+    GH_VIS="skip"
+    echo -e "  ${YELLOW}⚠ No GitHub username provided — skipping GitHub setup.${RESET}"
+fi
 
 # ── Step 3: Create new project directory ──────────────────────────
 TEMPLATE_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -159,7 +181,10 @@ cat > "$PROJECT_DIR/.ml_config.json" << CONFIGEOF
   "target_column": "auto-detect",
   "task_type": "auto-detect",
   "deployment_platform": "${PLATFORM}",
+  "github_username": "${GH_USER}",
+  "github_repo": "${GH_REPO:-$PROJECT_NAME}",
   "github_visibility": "${GH_VIS}",
+  "github_url": "https://github.com/${GH_USER}/${GH_REPO:-$PROJECT_NAME}",
   "python_version": "${PY_VER}",
   "created_at": "${CREATED_AT}",
   "venv_path": ".venv",
@@ -183,9 +208,12 @@ echo -e "${CYAN}${BOLD}╔══════════════════
 echo -e "${CYAN}${BOLD}║  ✅  Project ready!                              ║${RESET}"
 echo -e "${CYAN}${BOLD}╠══════════════════════════════════════════════════╣${RESET}"
 printf "${CYAN}${BOLD}║${RESET}  📁  %-44s${CYAN}${BOLD}║${RESET}\n" "$PROJECT_DIR"
-printf "${CYAN}${BOLD}║${RESET}  🐍  Venv : .venv/                              ${CYAN}${BOLD}║${RESET}\n"
-printf "${CYAN}${BOLD}║${RESET}  📊  Data : ${DATASET_FILENAME_SAFE}$(printf '%*s' $((36 - ${#DATASET_FILENAME_SAFE})) '')${CYAN}${BOLD}║${RESET}\n"
-printf "${CYAN}${BOLD}║${RESET}  🚀  Deploy: %-36s${CYAN}${BOLD}║${RESET}\n" "$PLATFORM"
+printf "${CYAN}${BOLD}║${RESET}  🐍  Venv   : .venv/                            ${CYAN}${BOLD}║${RESET}\n"
+printf "${CYAN}${BOLD}║${RESET}  📊  Data   : ${DATASET_FILENAME_SAFE}$(printf '%*s' $((34 - ${#DATASET_FILENAME_SAFE})) '')${CYAN}${BOLD}║${RESET}\n"
+printf "${CYAN}${BOLD}║${RESET}  🚀  Deploy : %-34s${CYAN}${BOLD}║${RESET}\n" "$PLATFORM"
+if [ -n "$GH_USER" ]; then
+    printf "${CYAN}${BOLD}║${RESET}  🐙  GitHub : %-34s${CYAN}${BOLD}║${RESET}\n" "github.com/${GH_USER}/${GH_REPO:-$PROJECT_NAME}"
+fi
 echo -e "${CYAN}${BOLD}╠══════════════════════════════════════════════════╣${RESET}"
 echo -e "${CYAN}${BOLD}║${RESET}  To start:                                       ${CYAN}${BOLD}║${RESET}"
 echo -e "${CYAN}${BOLD}║${RESET}    cd $(echo "$PROJECT_DIR" | sed 's|.*Downloads/||')${CYAN}${BOLD}║${RESET}"

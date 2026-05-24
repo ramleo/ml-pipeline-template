@@ -66,8 +66,8 @@ Delegate to a sub-agent whenever a task is **token-heavy, self-contained, or pro
 # Instructions for Initialization
 
 1. **Check for `.ml_config.json`** in the project root:
-   - If found: read `dataset_path`, `target_column`, `deployment_platform` from it.
-   - If not found: ask — "Please provide your dataset CSV path:" and "Which column is the target variable?"
+   - If found: read `dataset_path`, `target_column`, `deployment_platform`, `github_username`, `github_repo`, `github_visibility` from it.
+   - If not found: ask — "Please provide your dataset CSV path:", "Which column is the target variable?", "Your GitHub username:", and "GitHub repo name (default: project name):".
 
 2. **Check for `.venv/`** virtual environment:
    - If missing: run `python3 -m venv .venv` → `source .venv/bin/activate` → `pip install -r requirements.txt`. Mark Step 0 complete.

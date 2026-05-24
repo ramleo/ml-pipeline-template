@@ -57,16 +57,19 @@ git add .
 git commit -m "Initial commit: end-to-end ML pipeline with FastAPI"
 ```
 
-### 11d — Create Public GitHub Repo & Push
+### 11d — Create GitHub Repo & Push
+Read `github_username`, `github_repo`, and `github_visibility` from `.ml_config.json`, then run:
 ```bash
-gh repo create <project-name> \
-  --public \
+gh repo create <github_repo> \
+  --<github_visibility> \
   --description "<brief description>" \
   --source=. \
   --remote=origin \
   --push
 ```
-Confirm the repo is live at `https://github.com/<username>/<project-name>`.
+Confirm the repo is live at `https://github.com/<github_username>/<github_repo>`.
+
+> **Note:** Never hardcode the username or repo name. Always read both from `.ml_config.json`. If `.ml_config.json` is missing or the fields are empty, ask the user: "What is your GitHub username?" and "What should the repo be named?" before running any `gh` command.
 
 ---
 

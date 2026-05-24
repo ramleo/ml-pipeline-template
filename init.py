@@ -97,19 +97,46 @@ def collect_inputs() -> dict:
     )
     platform = PLATFORMS.get(deploy_choice, "ask_later")
 
-    # GitHub
-    gh_choice = menu(
-        "GitHub repo visibility:",
-        [("1", "Public"), ("2", "Private"), ("3", "Skip GitHub setup")],
-        default="1",
-    )
-    gh_vis = {"1": "public", "2": "private", "3": "skip"}.get(gh_choice, "public")
+    # GitHub username — auto-detect from gh CLI if available
+    print(f"\n{B}GitHub setup:{X}")
+    gh_detected = ""
+    try:
+        result = subprocess.run(
+            ["gh", "api", "user", "--jq", ".login"],
+            capture_output=True, text=True, timeout=5
+        )
+        if result.returncode == 0:
+            gh_detected = result.stdout.strip()
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+
+    if gh_detected:
+        print(f"  {G}✔ GitHub account detected: {gh_detected}{X}")
+        gh_user = prompt(f"  GitHub username (press Enter to use '{gh_detected}')", gh_detected)
+    else:
+        gh_user = prompt("  GitHub username (press Enter to skip GitHub setup)", "")
+
+    # Repo name — defaults to project name (no timestamp)
+    gh_repo = ""
+    gh_vis  = "skip"
+    if gh_user:
+        gh_repo = prompt(f"  GitHub repo name", project_name).replace(" ", "-")
+        gh_choice = menu(
+            "  GitHub repo visibility:",
+            [("1", "Public"), ("2", "Private")],
+            default="1",
+        )
+        gh_vis = "private" if gh_choice == "2" else "public"
+    else:
+        print(f"  {Y}⚠ No GitHub username provided — skipping GitHub setup.{X}")
 
     return {
-        "project_name":    project_name,
-        "dataset_path":    dataset_path,
-        "dataset_filename": dataset_filename,
-        "platform":        platform,
+        "project_name":      project_name,
+        "dataset_path":      dataset_path,
+        "dataset_filename":  dataset_filename,
+        "platform":          platform,
+        "github_username":   gh_user,
+        "github_repo":       gh_repo or project_name,
         "github_visibility": gh_vis,
     }
 
@@ -156,6 +183,8 @@ def copy_dataset(cfg: dict, project_dir: Path):
 
 def write_config(cfg: dict, project_dir: Path):
     py_ver = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    gh_user = cfg.get("github_username", "")
+    gh_repo = cfg.get("github_repo", cfg["project_name"])
     config = {
         "project_name":      cfg["project_name"],
         "dataset_filename":  cfg["dataset_filename"] or "<not provided yet>",
@@ -163,7 +192,10 @@ def write_config(cfg: dict, project_dir: Path):
         "target_column":     "auto-detect",
         "task_type":         "auto-detect",
         "deployment_platform": cfg["platform"],
+        "github_username":   gh_user,
+        "github_repo":       gh_repo,
         "github_visibility": cfg["github_visibility"],
+        "github_url":        f"https://github.com/{gh_user}/{gh_repo}" if gh_user else "",
         "python_version":    py_ver,
         "created_at":        datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "venv_path":         ".venv",
@@ -175,14 +207,17 @@ def write_config(cfg: dict, project_dir: Path):
 def show_summary(cfg: dict, project_dir: Path):
     fn   = cfg["dataset_filename"] or "<not provided yet>"
     plat = PLATFORM_LABELS.get(cfg["platform"], cfg["platform"])
+    gh_user = cfg.get("github_username", "")
+    gh_repo = cfg.get("github_repo", cfg["project_name"])
+    gh_line = f"\n{C}{B}║{X}  🐙  GitHub : github.com/{gh_user}/{gh_repo}" if gh_user else ""
     print(f"""
 {C}{B}╔══════════════════════════════════════════════════╗
 ║  ✅  Project ready!                              ║
 ╠══════════════════════════════════════════════════╣{X}
 {C}{B}║{X}  📁  {project_dir}
-{C}{B}║{X}  🐍  Venv  : .venv/
-{C}{B}║{X}  📊  Data  : {fn}
-{C}{B}║{X}  🚀  Deploy: {plat}
+{C}{B}║{X}  🐍  Venv   : .venv/
+{C}{B}║{X}  📊  Data   : {fn}
+{C}{B}║{X}  🚀  Deploy : {plat}{gh_line}
 {C}{B}╠══════════════════════════════════════════════════╣{X}
 {C}{B}║{X}  To start:
 {C}{B}║{X}    cd {project_dir}
