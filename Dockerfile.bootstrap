@@ -1,0 +1,30 @@
+# Dockerfile.bootstrap — ML Pipeline Template Docker Distributor
+#
+# This image creates the ml-pipeline-template/ folder in a mounted volume.
+# It does NOT run the ML pipeline — it just scaffolds the template files.
+#
+# Build:
+#   docker build -t ml-pipeline-template -f Dockerfile.bootstrap .
+#
+# Run (creates ./ml-pipeline-template/ in your current directory):
+#   docker run --rm -v $(pwd):/output ml-pipeline-template
+#
+# Run with a custom folder name:
+#   docker run --rm -v $(pwd):/output ml-pipeline-template my-custom-name
+
+FROM python:3.11-slim
+
+LABEL org.opencontainers.image.title="ML Pipeline Template"
+LABEL org.opencontainers.image.description="Bootstraps an end-to-end ML template folder — no git clone required"
+LABEL org.opencontainers.image.version="1.0.0"
+
+# Copy only the bootstrap script — nothing else needed at runtime
+COPY bootstrap.py /bootstrap.py
+RUN chmod +x /bootstrap.py
+
+# Output is written here; mount your host directory to this path
+WORKDIR /output
+VOLUME ["/output"]
+
+ENTRYPOINT ["python3", "/bootstrap.py"]
+CMD ["ml-pipeline-template"]

@@ -1,6 +1,6 @@
 # 🤖 ML Pipeline Template
 
-> An autonomous, end-to-end machine learning template powered by Claude Code.  
+> An autonomous, end-to-end machine learning template powered by Claude Code.
 > Bring your CSV — the AI builds the pipeline, API, Docker image, and deploys it.
 
 ---
@@ -30,7 +30,34 @@
 
 ---
 
-## Quick Start — 3 Ways to Run
+## Step 1 — Get the Template
+
+Choose any one method:
+
+### 🔥 Bootstrap (no git, no clone required)
+```bash
+# Download the single installer script and run it
+curl -O https://raw.githubusercontent.com/ramleo/ml-pipeline-template/main/bootstrap.py
+python3 bootstrap.py
+cd ml-pipeline-template
+```
+
+### 🐳 Via Docker (nothing to install except Docker)
+```bash
+docker build -t ml-pipeline-template -f Dockerfile.bootstrap .
+docker run --rm -v $(pwd):/output ml-pipeline-template
+cd ml-pipeline-template
+```
+
+### 📦 Git Clone
+```bash
+git clone https://github.com/ramleo/ml-pipeline-template
+cd ml-pipeline-template
+```
+
+---
+
+## Step 2 — Run It (3 options)
 
 ### Option A — Shell Script (guided terminal prompts)
 ```bash
@@ -112,6 +139,8 @@ Task type is **auto-detected** from your target column — no config needed.
 | `deploy/cloud-platforms.md` | AWS / GCP / Azure / Fly.io / Railway steps |
 | `start.sh` | Bash entry point |
 | `init.py` | Python CLI entry point |
+| `bootstrap.py` | Single-file installer (no git required) |
+| `Dockerfile.bootstrap` | Docker image for distributing the template |
 | `.ml_config.json.example` | Reference config template |
 
 ---

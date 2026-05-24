@@ -116,17 +116,15 @@ az containerapp create --name <project-name> \
 ```
 
 ### 14d — Universal Smoke Tests
+Replace `<LIVE_URL>` with your deployed service URL, and `<SAMPLE_PAYLOAD>` with a valid JSON object from your dataset.
 ```bash
 curl https://<LIVE_URL>/health
 curl -X POST https://<LIVE_URL>/predict \
   -H "Content-Type: application/json" \
-  -d '{"sepal_length_cm":5.1,"sepal_width_cm":3.5,"petal_length_cm":1.4,"petal_width_cm":0.2}'
-curl -X POST https://<LIVE_URL>/predict \
-  -H "Content-Type: application/json" \
-  -d '{"sepal_length_cm":6.7,"sepal_width_cm":3.0,"petal_length_cm":5.2,"petal_width_cm":2.3}'
+  -d '<SAMPLE_PAYLOAD>'
 curl -X POST https://<LIVE_URL>/predict/batch \
   -H "Content-Type: application/json" \
-  -d '[{"sepal_length_cm":5.1,"sepal_width_cm":3.5,"petal_length_cm":1.4,"petal_width_cm":0.2},{"sepal_length_cm":6.7,"sepal_width_cm":3.0,"petal_length_cm":5.2,"petal_width_cm":2.3}]'
+  -d '[<SAMPLE_PAYLOAD>, <SAMPLE_PAYLOAD_2>]'
 open https://<LIVE_URL>/docs
 ```
 

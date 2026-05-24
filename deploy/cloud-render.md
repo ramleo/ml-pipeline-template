@@ -37,7 +37,7 @@ services:
 curl https://<project-name>.onrender.com/health
 curl -X POST https://<project-name>.onrender.com/predict \
   -H "Content-Type: application/json" \
-  -d '{"sepal_length_cm":5.1,"sepal_width_cm":3.5,"petal_length_cm":1.4,"petal_width_cm":0.2}'
+  -d '<replace with valid feature JSON from your dataset>'
 ```
 
 ### 13d — Create `deployment_guide.md`

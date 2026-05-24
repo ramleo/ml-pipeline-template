@@ -51,4 +51,4 @@ All files are ≤ 150 lines. ✅ No content was dropped — only reorganised.
 
 ## Commit Reference
 
-Split performed and pushed as commit `81237e2` to `https://github.com/ramleo/iris-ml-pipeline`.
+Split performed and pushed to `https://github.com/ramleo/ml-pipeline-template`.
