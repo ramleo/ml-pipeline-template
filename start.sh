@@ -193,15 +193,6 @@ cat > "$PROJECT_DIR/.ml_config.json" << CONFIGEOF
 CONFIGEOF
 echo -e "  ${GREEN}✔ .ml_config.json written${RESET}"
 
-# ── Step 8: Patch CLAUDE.md project scope ─────────────────────────
-if [ -n "$DATASET_FILENAME" ]; then
-    sed -i.bak \
-        -e "s|data/Iris.csv|data/${DATASET_FILENAME}|g" \
-        -e "s|auto-detect from dataset|auto-detect|g" \
-        "$PROJECT_DIR/CLAUDE.md" 2>/dev/null || true
-    rm -f "$PROJECT_DIR/CLAUDE.md.bak"
-fi
-
 # ── Step 9: Completion summary ─────────────────────────────────────
 echo ""
 echo -e "${CYAN}${BOLD}╔══════════════════════════════════════════════════╗${RESET}"
