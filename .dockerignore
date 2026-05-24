@@ -1,0 +1,37 @@
+# Git
+.git/
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# Data & plots (not needed at runtime)
+data/
+plots/
+
+# Dev / test files
+test_pipeline.py
+preprocess.py
+
+# Docs
+*.md
+sample-prompt1.md
+
+# macOS
+.DS_Store
+
+# Secrets
+.env
+*.env.*
+
+# IDE
+.vscode/
+.idea/
+
+# Claude
+.claude/
