@@ -87,6 +87,17 @@ Claude will ask for:
 | Deployment platform | Render, Fly.io, Railway, AWS, GCP, Azure, or skip |
 | GitHub username | `your-github-username` (optional) |
 
+### When to add your CSV file
+
+**You do not need to move your CSV anywhere beforehand.** Just have it somewhere on your computer and know its full path.
+
+When Claude asks `Please provide your dataset CSV path:`, type the full path to wherever the file already is — Claude copies it into the project's `data/` folder automatically.
+
+| Situation | What to do |
+|---|---|
+| File is anywhere on your computer | Type its full path when Claude asks, e.g. `/Users/yourname/Downloads/mydata.csv` |
+| File is not ready yet | Press Enter to skip — drop the CSV into the project's `data/` folder later and tell Claude the filename |
+
 ---
 
 ## Step 7 — Pipeline runs automatically
