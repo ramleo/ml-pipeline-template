@@ -144,7 +144,7 @@ def _test_start_sh_mode_handling() -> TestResult:
         ("Option 3: sets LAUNCH_CLAUDE",           'LAUNCH_CLAUDE=true' in content),
         ("Option 3 runs claude .",                 'claude .' in content),
         ("Default is 3",                           'ENTRY_MODE:-3' in content or 'default: 3' in content),
-        ("STAGING_DIR in /tmp defined",            staging_pos != -1 and "/tmp" in content),
+        ("STAGING_DIR defined (same-volume staging)", staging_pos != -1 and "dirname" in content),
         ("rsync goes to STAGING_DIR",              "STAGING_DIR/" in content and rsync_pos != -1),
         ("venv created in staging",                venv_pos != -1),
         ("pip install in staging",                 pip_pos != -1),

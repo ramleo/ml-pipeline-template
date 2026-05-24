@@ -140,22 +140,30 @@ def collect_inputs() -> dict:
         "github_visibility": gh_vis,
     }
 
-def _make_staging_dir(project_name: str, timestamp: str) -> Path:
-    """Return a /tmp staging path. Invisible to VS Code — no premature folder flash."""
-    staging = Path(f"/tmp/.ml_staging_{project_name}_{timestamp}")
+def _make_staging_dir(project_dir: Path) -> Path:
+    """
+    Return a staging path in the SAME parent directory as project_dir.
+
+    /tmp is on a different APFS volume — shutil.move from /tmp is a cross-volume
+    COPY (VS Code sees folder appear empty, then files added one by one).
+    Same-parent staging means shutil.move is an atomic RENAME on the same volume
+    → VS Code sees the project folder appear ONCE, fully complete.
+    """
+    staging = project_dir.parent / f".ml_staging_{project_dir.name}"
     staging.mkdir(parents=True, exist_ok=True)
     return staging
 
 def create_project(cfg: dict) -> tuple:
     """
     Return (project_dir, staging_dir).
-    All work happens in staging_dir; a single shutil.move() at the end
-    makes the project appear in VS Code exactly once — complete and ready.
+    All work happens in staging_dir (same parent dir as project_dir);
+    a single shutil.move() renames it atomically — VS Code sees the
+    project appear exactly once, complete and ready.
     """
     template_dir = Path(__file__).parent.resolve()
     timestamp    = datetime.now().strftime("%Y%m%d_%H%M%S")
     project_dir  = template_dir.parent / f"{cfg['project_name']}_{timestamp}"
-    staging_dir  = _make_staging_dir(cfg['project_name'], timestamp)
+    staging_dir  = _make_staging_dir(project_dir)
     print(f"\n{G}▶ Creating project at: {project_dir}{X}")
     return project_dir, staging_dir
 

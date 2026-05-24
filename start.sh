@@ -163,10 +163,12 @@ TEMPLATE_DIR="$(cd "$(dirname "$0")" && pwd)"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 PROJECT_DIR="$(dirname "$TEMPLATE_DIR")/${PROJECT_NAME}_${TIMESTAMP}"
 
-# ── Step 4: Stage everything in /tmp first ─────────────────────────
-# This means VS Code sees the project folder appear ONCE — complete,
-# not incrementally. We mv the whole thing atomically at the end.
-STAGING_DIR="/tmp/.ml_staging_${PROJECT_NAME}_${TIMESTAMP}"
+# ── Step 4: Stage in the SAME directory as the final project ──────────
+# /tmp is on a different APFS volume — mv from /tmp would be a cross-volume
+# COPY (VS Code sees folder appear empty, then files added one by one).
+# Staging in the same parent dir means mv is an atomic RENAME on the same
+# volume — VS Code sees the project folder appear ONCE, fully complete.
+STAGING_DIR="$(dirname "$PROJECT_DIR")/.ml_staging_${PROJECT_NAME}_${TIMESTAMP}"
 STAGING_DIR_SET=true
 
 # Clean up staging dir on any unexpected exit
