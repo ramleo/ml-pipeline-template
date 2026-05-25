@@ -1,44 +1,120 @@
 #!/usr/bin/env python3
 """
 bootstrap.py — ML Pipeline Template Bootstrap
-Creates a complete ml-pipeline-template/ folder with all spec files.
-No git clone or GitHub account required.
+Creates an ML project folder directly — no intermediate template folder.
 
 Usage:
-  python3 bootstrap.py                      # creates ml-pipeline-template/
-  python3 bootstrap.py my-template-name     # custom folder name
+  python3 bootstrap.py          # interactive prompts → my-project_TIMESTAMP/
 
 Via Docker:
   docker build -t ml-pipeline-template -f Dockerfile.bootstrap .
   docker run --rm -v $(pwd):/output ml-pipeline-template
 """
 
-import os, sys, stat, shutil, subprocess
+import os, sys, stat, shutil, subprocess, json
 from pathlib import Path
+from datetime import datetime, timezone
 
-# ── Config ──────────────────────────────────────────────────────────
-FOLDER  = sys.argv[1] if len(sys.argv) > 1 else "ml-pipeline-template"
 VERSION = "1.0.0"
 
 # ── Colours ─────────────────────────────────────────────────────────
 G = "\033[0;32m"; C = "\033[0;36m"; B = "\033[1m"
 Y = "\033[1;33m"; R = "\033[0;31m"; X = "\033[0m"
 
-root = Path(FOLDER)
-if root.exists():
-    print(f"\n{R}Error:{X} '{FOLDER}' already exists. Choose a different name or remove it first.")
-    sys.exit(1)
+# ── Input helpers ────────────────────────────────────────────────────
+def _prompt(msg, default=""):
+    suffix = f" (default: {default})" if default else ""
+    val = input(f"{msg}{suffix}: ").strip()
+    return val or default
 
-print(f"""
-{C}{B}╔══════════════════════════════════════════════════╗
-║        🤖  ML Pipeline Template  v{VERSION}          ║
-║   Bootstrapping: {FOLDER:<30}║
-╚══════════════════════════════════════════════════╝{X}
-""")
+def _menu(title, options, default="1"):
+    print(f"\n{B}{title}{X}")
+    for key, label in options:
+        print(f"  {key}) {label}")
+    choice = input(f"Enter choice (default: {default}): ").strip()
+    return choice or default
 
-# ── Create directory structure ───────────────────────────────────────
-for d in ["data", "models", "plots", "src", "deploy", "docs", "tests"]:
-    (root / d).mkdir(parents=True)
+def collect_inputs():
+    print(f"\n{B}── Project Setup ──────────────────────────────────────{X}")
+    project_name = _prompt("Project name", "ml-project").replace(" ", "-")
+
+    dataset_path, dataset_filename = "", ""
+    raw = _prompt("Dataset CSV path (press Enter to skip)", "")
+    if raw:
+        p = Path(raw).expanduser().resolve()
+        if p.is_file():
+            dataset_path, dataset_filename = str(p), p.name
+            print(f"  {G}✔ Found: {dataset_filename}{X}")
+        else:
+            print(f"  {Y}⚠ File not found — copy to data/ later.{X}")
+
+    deploy_choice = _menu("Deployment platform:", [
+        ("1", "Ask me later"),
+        ("2", "Render        (free tier, recommended)"),
+        ("3", "Fly.io"),
+        ("4", "Railway"),
+        ("5", "AWS App Runner"),
+        ("6", "GCP Cloud Run"),
+        ("7", "Azure Container Apps"),
+        ("8", "Skip (local / Docker only)"),
+    ], default="1")
+    platform = {
+        "1": "ask_later", "2": "render",  "3": "fly.io",
+        "4": "railway",   "5": "aws",     "6": "gcp",
+        "7": "azure",     "8": "none",
+    }.get(deploy_choice, "ask_later")
+
+    print(f"\n{B}GitHub setup:{X}")
+    gh_detected = ""
+    try:
+        r = subprocess.run(["gh", "api", "user", "--jq", ".login"],
+                           capture_output=True, text=True, timeout=5)
+        if r.returncode == 0:
+            gh_detected = r.stdout.strip()
+    except Exception:
+        pass
+
+    if gh_detected:
+        print(f"  {G}✔ GitHub account detected: {gh_detected}{X}")
+        gh_user = _prompt(f"  GitHub username (Enter to use '{gh_detected}')", gh_detected)
+    else:
+        gh_user = _prompt("  GitHub username (Enter to skip)", "")
+
+    gh_repo, gh_vis = project_name, "skip"
+    if gh_user:
+        gh_repo = _prompt("  GitHub repo name", project_name).replace(" ", "-")
+        vis_choice = _menu("  GitHub repo visibility:", [("1", "Public"), ("2", "Private")], "1")
+        gh_vis = "private" if vis_choice == "2" else "public"
+    else:
+        print(f"  {Y}⚠ No GitHub username — skipping GitHub setup.{X}")
+
+    return dict(
+        project_name=project_name, dataset_path=dataset_path,
+        dataset_filename=dataset_filename, platform=platform,
+        github_username=gh_user, github_repo=gh_repo, github_visibility=gh_vis,
+    )
+
+def write_config(cfg, dest):
+    py = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    u, r = cfg["github_username"], cfg["github_repo"]
+    config = {
+        "project_name":        cfg["project_name"],
+        "dataset_filename":    cfg["dataset_filename"] or "<not provided yet>",
+        "dataset_path":        f"data/{cfg['dataset_filename']}" if cfg["dataset_filename"] else "<not provided yet>",
+        "target_column":       "auto-detect",
+        "task_type":           "auto-detect",
+        "deployment_platform": cfg["platform"],
+        "github_username":     u,
+        "github_repo":         r,
+        "github_visibility":   cfg["github_visibility"],
+        "github_url":          f"https://github.com/{u}/{r}" if u else "",
+        "python_version":      py,
+        "created_at":          datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "venv_path":           ".venv",
+        "template_version":    VERSION,
+    }
+    (dest / ".ml_config.json").write_text(json.dumps(config, indent=2))
+    print(f"  {G}✔ .ml_config.json written{X}")
 
 # ── File contents ────────────────────────────────────────────────────
 
@@ -1888,20 +1964,6 @@ FILES["data/.gitkeep"]   = ""
 FILES["models/.gitkeep"] = ""
 FILES["plots/.gitkeep"]  = ""
 
-# ── Write all files ──────────────────────────────────────────────────
-print(f"Creating files:\n")
-for rel_path, content in FILES.items():
-    full = root / rel_path
-    full.parent.mkdir(parents=True, exist_ok=True)
-    full.write_text(content, encoding="utf-8")
-    print(f"  {G}✔{X}  {rel_path}")
-
-# ── Make executables ─────────────────────────────────────────────────
-for exe in ["start.sh"]:
-    p = root / exe
-    if p.exists():
-        p.chmod(p.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
-
 # ── Prerequisites Check ──────────────────────────────────────────────
 def check_prereqs():
     print(f"\n{C}{B}Checking prerequisites...{X}")
@@ -1944,35 +2006,105 @@ def check_prereqs():
             print(f"    npm install -g @anthropic-ai/claude-code")
             print(f"  Or visit: https://docs.anthropic.com/en/docs/claude-code/setup")
 
-check_prereqs()
-
-# ── Create .venv in the template folder ──────────────────────────────
-print(f"\n{C}{B}Creating Python virtual environment (.venv)...{X}")
-_venv = root / ".venv"
-try:
-    subprocess.run([sys.executable, "-m", "venv", str(_venv)], check=True)
-    _pip = str(_venv / "bin" / "pip")
-    subprocess.run([_pip, "install", "--upgrade", "pip", "-q"], check=True)
-    _req = root / "requirements.txt"
-    if _req.exists():
-        subprocess.run([_pip, "install", "-r", str(_req), "-q"], check=True)
-    print(f"  {G}✔{X}  .venv/ created — dependencies pre-installed")
-except Exception as _e:
-    print(f"  {Y}⚠{X}  .venv creation failed: {_e}")
-    print(f"     Run manually:  cd {FOLDER} && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt")
-
-# ── Done ─────────────────────────────────────────────────────────────
+# ── Main ─────────────────────────────────────────────────────────────
 print(f"""
-{G}{B}╔══════════════════════════════════════════════════╗
-║  ✅  Template ready!                             ║
+{C}{B}╔══════════════════════════════════════════════════╗
+║        🤖  ML Pipeline Template  v{VERSION}          ║
+║   End-to-End Machine Learning Automation         ║
 ╚══════════════════════════════════════════════════╝{X}
-
-  📁  ./{FOLDER}/
-  🐍  .venv/ — Python environment pre-installed
-
-  {B}Next steps:{X}
-    cd {FOLDER}
-    ./start.sh          ← shell wizard
-    python3 init.py     ← Python wizard
-    claude .            ← AI-driven (recommended)
 """)
+
+check_prereqs()
+cfg = collect_inputs()
+
+# ── Create project dir (staging → atomic move, APFS-safe) ────────────
+timestamp   = datetime.now().strftime("%Y%m%d_%H%M%S")
+project_dir = Path(".").resolve() / f"{cfg['project_name']}_{timestamp}"
+staging_dir = project_dir.parent / f".ml_staging_{project_dir.name}"
+
+if project_dir.exists():
+    print(f"\n{R}Error:{X} '{project_dir.name}' already exists. Choose a different name.")
+    sys.exit(1)
+
+staging_dir.mkdir(parents=True, exist_ok=True)
+
+# Write template files — skip setup scripts (they belong in the template source, not projects)
+SKIP_IN_PROJECT = {"start.sh", "init.py"}
+print(f"\n{G}▶ Preparing project files...{X}")
+for rel_path, content in FILES.items():
+    if rel_path in SKIP_IN_PROJECT:
+        continue
+    full = staging_dir / rel_path
+    full.parent.mkdir(parents=True, exist_ok=True)
+    full.write_text(content, encoding="utf-8")
+print(f"  {G}✔ Template files ready{X}")
+
+# Copy dataset if provided
+if cfg["dataset_path"] and Path(cfg["dataset_path"]).is_file():
+    (staging_dir / "data").mkdir(exist_ok=True)
+    shutil.copy2(cfg["dataset_path"], staging_dir / "data" / cfg["dataset_filename"])
+    print(f"  {G}✔ Dataset copied: {cfg['dataset_filename']}{X}")
+
+write_config(cfg, staging_dir)
+
+# .venv + deps
+print(f"\n{G}▶ Creating Python virtual environment (.venv)...{X}")
+subprocess.run([sys.executable, "-m", "venv", str(staging_dir / ".venv")], check=True)
+print(f"  {G}✔ Virtual environment created{X}")
+
+print(f"{G}▶ Installing dependencies (this may take a minute)...{X}")
+_pip = str(staging_dir / ".venv" / "bin" / "pip")
+subprocess.run([_pip, "install", "--upgrade", "pip", "-q"], check=True)
+_req = staging_dir / "requirements.txt"
+if _req.exists():
+    subprocess.run([_pip, "install", "-r", str(_req), "-q"], check=True)
+print(f"  {G}✔ Dependencies installed{X}")
+
+# Atomic move → VS Code sees project appear once, fully complete
+print(f"\n{G}▶ Creating project at: {project_dir}{X}")
+shutil.move(str(staging_dir), str(project_dir))
+
+# Fix .venv shebangs after path changed
+try:
+    subprocess.run([sys.executable, "-m", "venv", "--upgrade", str(project_dir / ".venv")],
+                   check=True, capture_output=True)
+except Exception:
+    try:
+        subprocess.run([str(project_dir / ".venv" / "bin" / "python"),
+                        "-m", "pip", "install", "pip", "-q"],
+                       check=False, capture_output=True)
+    except Exception:
+        pass
+
+# Summary
+plat_labels = {
+    "ask_later": "Ask me later",   "render":   "Render (free tier)",
+    "fly.io":    "Fly.io",         "railway":  "Railway",
+    "aws":       "AWS App Runner", "gcp":      "GCP Cloud Run",
+    "azure":     "Azure Container Apps", "none": "Local / Docker only",
+}
+fn   = cfg["dataset_filename"] or "<not provided yet>"
+plat = plat_labels.get(cfg["platform"], cfg["platform"])
+u, r = cfg["github_username"], cfg["github_repo"]
+gh_line = f"\n{C}{B}║{X}  🐙  GitHub : github.com/{u}/{r}" if u else ""
+print(f"""
+{C}{B}╔══════════════════════════════════════════════════╗
+║  ✅  Project ready!                              ║
+╠══════════════════════════════════════════════════╣{X}
+{C}{B}║{X}  📁  {project_dir}
+{C}{B}║{X}  🐍  Venv   : .venv/
+{C}{B}║{X}  📊  Data   : {fn}
+{C}{B}║{X}  🚀  Deploy : {plat}{gh_line}
+{C}{B}╠══════════════════════════════════════════════════╣{X}
+{C}{B}║{X}  ✅  Launching Claude Code...
+{C}{B}╚══════════════════════════════════════════════════╝{X}
+""")
+
+# Launch Claude Code
+print(f"{G}▶ Launching Claude Code in your new project...{X}")
+os.chdir(project_dir)
+if shutil.which("claude"):
+    subprocess.run(["claude", "."])
+else:
+    print(f"{Y}Claude Code CLI not found. Install: npm install -g @anthropic-ai/claude-code{X}")
+    print(f"Then run: {B}cd {project_dir} && source .venv/bin/activate && claude .{X}")
