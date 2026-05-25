@@ -1989,12 +1989,15 @@ X = "\033[0m"      # reset
 # ════════════════════════════════════════════════════════════════════
 
 ROOT = Path(__file__).parent.resolve()
-CONFIG_PATH = ROOT / ".ml_config.json"
-MODELS_DIR = ROOT / "models"
-PLOTS_DIR = ROOT / "plots"
-DOCS_DIR = ROOT / "docs"
+os.chdir(ROOT)   # ensure all relative paths resolve from the project root
 
-for d in (MODELS_DIR, PLOTS_DIR, DOCS_DIR):
+CONFIG_PATH = ROOT / ".ml_config.json"
+DATA_DIR    = ROOT / "data"
+MODELS_DIR  = ROOT / "models"
+PLOTS_DIR   = ROOT / "plots"
+DOCS_DIR    = ROOT / "docs"
+
+for d in (DATA_DIR, MODELS_DIR, PLOTS_DIR, DOCS_DIR):
     d.mkdir(parents=True, exist_ok=True)
 
 
@@ -2068,15 +2071,15 @@ if dataset_path_raw:
 
 if csv_path is None:
     # Scan data/ for any CSV
-    data_dir = ROOT / "data"
-    if data_dir.exists():
-        csvs = list(data_dir.glob("*.csv"))
-        if csvs:
-            csv_path = csvs[0]
-            _warn(f"dataset_path not found; using auto-discovered: {csv_path.name}")
+    csvs = list(DATA_DIR.glob("*.csv"))
+    if csvs:
+        csv_path = csvs[0]
+        _warn(f"dataset_path not found; using auto-discovered: {csv_path.name}")
 
 if csv_path is None:
-    _err("No CSV dataset found. Set 'dataset_path' in .ml_config.json or place a CSV in data/.")
+    _err("No CSV dataset found.")
+    _info(f"Copy your dataset into: {DATA_DIR}/")
+    _info("Then re-run: .venv/bin/python auto_pipeline.py")
     sys.exit(1)
 
 _ok(f"Dataset: {csv_path}")
