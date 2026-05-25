@@ -1048,4 +1048,115 @@ https://raw.githubusercontent.com/<username>/ml-pipeline-template/main/bootstrap
 
 ---
 
+---
+
+## 13. Auto Pipeline Option (No Claude Subscription Required)
+
+### Overview
+
+Not every user has a Claude Code subscription. `auto_pipeline.py` provides a fully automated ML pipeline using pure sklearn — no AI required. It is embedded in the `FILES` dict inside `bootstrap.py` so it is automatically written into every new project.
+
+### Launch Menu (appears at end of bootstrap.py)
+
+After the project is created, bootstrap.py shows a 3-option menu:
+
+```
+How would you like to run the pipeline?
+  1) Claude Code   — AI-driven, fully automated (recommended)
+  2) Auto Pipeline — no Claude subscription needed (pure sklearn)
+  3) Manual        — I'll run it myself later
+Enter choice (default: 1):
+```
+
+- **Option 1** — launches `claude .` in the project directory (requires Claude Code CLI)
+- **Option 2** — runs `.venv/bin/python auto_pipeline.py` immediately
+- **Option 3** — prints instructions and exits; user runs manually later
+
+### auto_pipeline.py Architecture
+
+**File location in project:** `auto_pipeline.py` (project root)
+**Embedded in bootstrap:** `FILES["auto_pipeline.py"] = r'''...'''`
+**Setup scripts excluded from projects:** `start.sh`, `init.py` — but NOT `auto_pipeline.py` (it belongs in every project)
+
+**Critical startup line:**
+```python
+ROOT = Path(__file__).parent.resolve()
+os.chdir(ROOT)   # ensures all relative paths resolve from project root
+```
+This must be the first thing after path setup — without it, relative paths like `models/final_pipeline.pkl` fail if the script is called from a different working directory.
+
+**Execution steps (in order):**
+
+| Step | What it does | Output |
+|---|---|---|
+| 0 | Resolve ROOT, chdir, create dirs (data/, models/, plots/, docs/) | — |
+| 1 | Load `.ml_config.json`; if missing, prompt for dataset path + target column | config dict |
+| 2 | Find CSV: try dataset_path from config → scan data/ for any .csv → exit with clear error if none found | csv_path |
+| 3 | Import heavy deps (numpy, pandas, matplotlib, sklearn, joblib) after path check | — |
+| 4 | EDA: print shape/dtypes/missing/class balance; save `plots/eda_correlation.png` + `plots/eda_target.png` | 2 PNG files |
+| 5 | Auto-detect task type: ≤20 unique values or object/bool target → classification; else regression | task_type |
+| 6 | Preprocessing: drop columns >50% missing; numeric→SimpleImputer(median)+StandardScaler/RobustScaler; categorical→SimpleImputer(most_frequent)+OneHotEncoder; LabelEncoder for target (classification) | ColumnTransformer |
+| 7 | 80/20 stratified split (classification) or random split (regression), random_state=42 | X_train, X_test, y_train, y_test |
+| 8 | GridSearchCV(cv=3, n_jobs=-1) over 3 candidates per task type | best model + params |
+| 9 | Refit best pipeline on full train set; evaluate on test set | metrics |
+| 10 | Save `models/final_pipeline.pkl` + `models/label_encoder.pkl` (classification) | .pkl files |
+| 11 | Write `docs/auto_summary.md` with dataset info, model results, metrics, artifact paths | .md file |
+| 12 | Print coloured summary banner to terminal | — |
+
+**Candidate models:**
+
+Classification:
+- `LogisticRegression(solver='saga', random_state=42)` — grid: `C=[0.1, 1, 10]`
+- `RandomForestClassifier(random_state=42)` — grid: `n_estimators=[100,200], max_depth=[None,5]`
+- `GradientBoostingClassifier(random_state=42)` — grid: `n_estimators=[100,200], learning_rate=[0.05,0.1]`
+
+Regression:
+- `Ridge()` — grid: `alpha=[0.1, 1, 10]`
+- `RandomForestRegressor(random_state=42)` — grid: `n_estimators=[100,200], max_depth=[None,5]`
+- `GradientBoostingRegressor(random_state=42)` — grid: `n_estimators=[100,200], learning_rate=[0.05,0.1]`
+
+**Artifacts produced:**
+
+| File | Description |
+|---|---|
+| `models/final_pipeline.pkl` | Full sklearn Pipeline (ColumnTransformer + best model) |
+| `models/label_encoder.pkl` | Fitted LabelEncoder (classification only) |
+| `plots/eda_correlation.png` | Feature correlation heatmap |
+| `plots/eda_target.png` | Target variable distribution |
+| `docs/auto_summary.md` | Full markdown report with metrics and reproducibility snippet |
+
+**Error handling:**
+- If no CSV found: prints exact path to copy dataset into + re-run command, exits cleanly
+- If a model fails GridSearchCV: skips it, continues with remaining candidates
+- If fewer than 1 model succeeds: exits with clear error
+
+### Key Implementation Notes for AI Agent
+
+1. **Embed in FILES dict** — `FILES["auto_pipeline.py"]` must use a raw string `r'''...'''` to preserve backslashes
+2. **Do NOT add to SKIP_IN_PROJECT** — unlike `start.sh`/`init.py`, `auto_pipeline.py` belongs in every project
+3. **os.chdir(ROOT) is mandatory** — bootstrap calls `subprocess.run([python, "auto_pipeline.py"])` after `os.chdir(project_dir)`, but defensive chdir inside the script is required for direct invocation
+4. **DATA_DIR must be defined** — `DATA_DIR = ROOT / "data"` used for auto-discovery glob
+5. **Launch menu replaces direct claude launch** — the old `subprocess.run(["claude", "."])` becomes the 3-option menu at the end of bootstrap.py's main block
+
+### Manual Usage (Option 3 or later)
+
+```bash
+cd my-project_20260525_143000
+source .venv/bin/activate
+python auto_pipeline.py         # run auto pipeline
+# or
+claude .                        # run Claude Code pipeline
+```
+
+### Common Pitfalls
+
+| Pitfall | Symptom | Fix |
+|---|---|---|
+| Missing `os.chdir(ROOT)` | `FileNotFoundError: models/final_pipeline.pkl` when called from wrong dir | Add `os.chdir(ROOT)` after ROOT is defined |
+| `auto_pipeline.py` in SKIP_IN_PROJECT | File not written to project | Remove from SKIP set — it belongs in projects |
+| No dataset in data/ | Script exits with confusing error | Clear message: "Copy your dataset into: {DATA_DIR}/" |
+| Embedding with regular string | Backslash errors in ANSI codes | Use `r'''...'''` raw string in FILES dict |
+
+---
+
 *End of bootstrap_template_spec.md*
