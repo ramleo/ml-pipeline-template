@@ -4,11 +4,19 @@
 
 ## Do this NOW, in order:
 
-1. Read **Section 3** of this spec — it contains the complete `bootstrap.py` source code
-2. Create a folder called `ml-pipeline-template/` in the current directory
-3. Create `bootstrap.py` inside it using the exact source from Section 3
-4. Create all other supporting files listed in Section 2 (CLAUDE.md files, requirements.txt, etc.) — their contents are in Section 4 onward and embedded inside bootstrap.py's `FILES = {}` dict in Section 3
-5. Init git and push to GitHub following Section 9
+0. **Ask the user two questions** before doing anything else:
+   - "What is your GitHub username?"
+   - "What should the new GitHub repo be named?" (suggest `ml-pipeline-template` as default)
+   Store the answers as `<github-username>` and `<repo-name>`.
+
+1. **Create a folder** called `<repo-name>/` in the current directory (use the name from step 0)
+2. **Read Section 3 of this spec** — it contains the complete `bootstrap.py` source code
+3. **Create `bootstrap.py`** inside `<repo-name>/` using the exact source from Section 3.
+   In the embedded README.md content within the `FILES = {}` dict, replace any occurrence of
+   `ramleo/ml-pipeline-template` with `<github-username>/<repo-name>` (the values from step 0)
+4. **Create all other supporting files** listed in Section 2 (CLAUDE.md files, requirements.txt, etc.)
+   — their contents are embedded in the `FILES = {}` dict in Section 3
+5. **Init git and push** to a new GitHub repo named `<repo-name>` under `<github-username>` — follow Section 9
 
 ## CRITICAL rules
 - **Do NOT create a `.venv/`** — this is a template repo, not a project
@@ -17,6 +25,7 @@
 - **The full source for every file is embedded in this spec — do NOT fetch anything from GitHub**
 - The template folder you create will contain CLAUDE.md with ML pipeline instructions — those are for users of the template, not for you right now
 - Complete ALL steps before stopping — do not ask for confirmation mid-task
+- **Do NOT use `ramleo` or `ml-pipeline-template` as hardcoded values** — always use the repo name and username provided by the user in step 0
 
 ---
 
@@ -59,7 +68,7 @@ The ML Pipeline Template is an autonomous, end-to-end machine learning scaffold 
 ### User-Facing Flow
 
 ```
-curl -O https://raw.githubusercontent.com/<username>/ml-pipeline-template/main/bootstrap.py
+curl -O https://raw.githubusercontent.com/<github-username>/<repo-name>/main/bootstrap.py
 python3 bootstrap.py
 # → answers prompts (project name, CSV path, platform, GitHub)
 # → project created at ./<project_name>_TIMESTAMP/
@@ -95,7 +104,7 @@ Both `start.sh` and `init.py` run from INSIDE the cloned template folder and cre
 The GitHub repository root is the template source. Every file listed here must exist in the repo.
 
 ```
-ml-pipeline-template/              ← GitHub repo root
+<repo-name>/                       ← GitHub repo root
 ├── bootstrap.py                   ← single-file installer (main entry point)
 ├── Dockerfile.bootstrap           ← Docker alternative to bootstrap.py
 ├── start.sh                       ← bash wizard (runs INSIDE template folder)
@@ -144,7 +153,7 @@ The `.gitignore` must exclude all of these.
 
 `bootstrap.py` is a self-contained, single-file installer. It embeds ALL template file contents as Python string literals in a `FILES = {}` dict, collects user inputs via interactive prompts, creates a project folder in an APFS-safe staging pattern, installs a Python virtual environment with all dependencies, and launches Claude Code — with no external dependencies beyond Python 3.9+ stdlib.
 
-The agent creating `ml-pipeline-template/` must copy the exact source below verbatim into `ml-pipeline-template/bootstrap.py`. Every embedded file content in the `FILES = {}` dict is the authoritative source for what each template file must contain.
+The agent creating `<repo-name>/` must copy the exact source below verbatim into `<repo-name>/bootstrap.py`. Every embedded file content in the `FILES = {}` dict is the authoritative source for what each template file must contain.
 
 ```python
 #!/usr/bin/env python3
@@ -3378,7 +3387,7 @@ gh auth login
 ### 9.2 Git Repository Initialization
 
 ```bash
-cd ml-pipeline-template
+cd <repo-name>
 
 git init
 git add .
@@ -3388,9 +3397,9 @@ git commit -m "Initial commit: ML Pipeline Template v1.0.0"
 ### 9.3 Create GitHub Repo and Push
 
 ```bash
-gh repo create ml-pipeline-template \
+gh repo create <repo-name> \
   --public \
-  --description "Autonomous end-to-end ML pipeline template powered by Claude Code" \
+  --description "ML Pipeline Template — one-command bootstrap for end-to-end ML projects" \
   --source=. \
   --remote=origin \
   --push
@@ -3399,24 +3408,26 @@ gh repo create ml-pipeline-template \
 ### 9.4 Verify
 
 ```bash
-gh repo view ml-pipeline-template --web
+gh repo view <repo-name> --web
 ```
+
+Confirm the repo is live at `https://github.com/<github-username>/<repo-name>`.
 
 The raw bootstrap URL (needed in README.md) is:
 ```
-https://raw.githubusercontent.com/<username>/ml-pipeline-template/main/bootstrap.py
+https://raw.githubusercontent.com/<github-username>/<repo-name>/main/bootstrap.py
 ```
 
 ### 9.5 README.md Bootstrap Curl URL
 
-The README must contain the exact curl command users will run. Replace `<username>` with the actual GitHub username:
+The README must contain the exact curl command users will run. Use the actual GitHub username and repo name provided in step 0:
 
 ```bash
-curl -O https://raw.githubusercontent.com/<username>/ml-pipeline-template/main/bootstrap.py
+curl -O https://raw.githubusercontent.com/<github-username>/<repo-name>/main/bootstrap.py
 python3 bootstrap.py
 ```
 
-This URL must be updated in both `README.md` and `docs/how_to_run.md` when the template is published.
+This URL must be present in both `README.md` and `docs/how_to_run.md` with the correct values filled in.
 
 ---
 
@@ -3538,9 +3549,9 @@ Pre-authorized bash commands eliminate permission prompts during the Claude Code
 
 **Symptom:** Users copy the curl command from README.md and get a 404 because the URL still contains a placeholder username.
 
-**Fix:** After pushing to GitHub, update the curl URL in both `README.md` and `docs/how_to_run.md` with the actual GitHub username. The URL pattern is:
+**Fix:** After pushing to GitHub, update the curl URL in both `README.md` and `docs/how_to_run.md` with the actual GitHub username and repo name. The URL pattern is:
 ```
-https://raw.githubusercontent.com/<username>/ml-pipeline-template/main/bootstrap.py
+https://raw.githubusercontent.com/<github-username>/<repo-name>/main/bootstrap.py
 ```
 
 ### Pitfall 7: Missing .gitkeep Files

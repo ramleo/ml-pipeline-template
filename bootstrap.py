@@ -1561,22 +1561,22 @@ Choose any one method:
 
 ### 🔥 Bootstrap (no git, no clone required)
 ```bash
-curl -O https://raw.githubusercontent.com/ramleo/ml-pipeline-template/main/bootstrap.py
+curl -O https://raw.githubusercontent.com/<your-username>/<your-repo-name>/main/bootstrap.py
 python3 bootstrap.py
-cd ml-pipeline-template
+cd <your-repo-name>
 ```
 
 ### 🐳 Via Docker (nothing to install except Docker)
 ```bash
 docker build -t ml-pipeline-template -f Dockerfile.bootstrap .
 docker run --rm -v $(pwd):/output ml-pipeline-template
-cd ml-pipeline-template
+cd <your-repo-name>
 ```
 
 ### 📦 Git Clone
 ```bash
-git clone https://github.com/ramleo/ml-pipeline-template
-cd ml-pipeline-template
+git clone https://github.com/<your-username>/<your-repo-name>
+cd <your-repo-name>
 ```
 
 ---
@@ -1764,7 +1764,7 @@ If you get `command not found`, install Python 3.9+ from [python.org](https://py
 ## Step 2 — Download the bootstrap script
 
 ```bash
-curl -O https://raw.githubusercontent.com/ramleo/ml-pipeline-template/main/bootstrap.py
+curl -O https://raw.githubusercontent.com/<your-username>/<your-repo-name>/main/bootstrap.py
 ```
 
 This downloads a single installer file — no git, no GitHub account required.
@@ -1778,7 +1778,7 @@ python3 bootstrap.py
 ```
 
 This will:
-- Create a `ml-pipeline-template/` folder with all template files
+- Create a `<your-repo-name>/` folder with all template files
 - Auto-install **Homebrew**, **Node.js**, and **Claude Code CLI** if they\'re missing
 
 ---
@@ -1786,7 +1786,7 @@ This will:
 ## Step 4 — Enter the template folder
 
 ```bash
-cd ml-pipeline-template
+cd <your-repo-name>
 ```
 
 ---
@@ -1911,11 +1911,11 @@ titanic-predictor_20260524_143000/
 
 ```bash
 docker build -t ml-pipeline-template -f Dockerfile.bootstrap \\
-  https://raw.githubusercontent.com/ramleo/ml-pipeline-template/main/Dockerfile.bootstrap
+  https://raw.githubusercontent.com/<your-username>/<your-repo-name>/main/Dockerfile.bootstrap
 
 docker run --rm -v $(pwd):/output ml-pipeline-template
 
-cd ml-pipeline-template
+cd <your-repo-name>
 ./start.sh
 ```
 
@@ -1924,8 +1924,8 @@ cd ml-pipeline-template
 ## Alternative: get the template via git clone
 
 ```bash
-git clone https://github.com/ramleo/ml-pipeline-template
-cd ml-pipeline-template
+git clone https://github.com/<your-username>/<your-repo-name>
+cd <your-repo-name>
 ./start.sh
 ```
 
@@ -1937,11 +1937,11 @@ cd ml-pipeline-template
 python3 --version          # 1. confirm Python is installed
 curl -O <bootstrap_url>    # 2. download installer
 python3 bootstrap.py       # 3. create template + auto-install tools
-cd ml-pipeline-template    # 4. enter folder
+cd <your-repo-name>        # 4. enter folder
 ./start.sh                 # 5. answer prompts → project created → Claude launches
 ```
 
-*(Replace `<bootstrap_url>` with `https://raw.githubusercontent.com/ramleo/ml-pipeline-template/main/bootstrap.py`)*
+*(Replace `<bootstrap_url>` with `https://raw.githubusercontent.com/<your-username>/<your-repo-name>/main/bootstrap.py`)*
 
 ---
 
