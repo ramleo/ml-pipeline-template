@@ -51,5 +51,8 @@ plots/*.png
 # Template test run logs (auto-generated per run, not committed)
 tests/template_tests/results/*.txt
 
+# Local explainer docs (not part of the published template)
+docs/bootstrap_spec_guide.md
+
 # Template output folders (new projects created as siblings)
 # *_[0-9]*/    ← uncomment to also ignore timestamped project siblings
